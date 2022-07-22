@@ -11,7 +11,7 @@ from .config import settings
 logger = get_logger()
 
 kwargs = {
-    "echo": settings.debug,
+    "echo": settings.sqlalchemy_echo,
     "pool_size": settings.sqlalchemy_pool_size,
     "max_overflow": settings.sqlalchemy_max_overflow,
     "pool_recycle": settings.sqlalchemy_pool_recycle,

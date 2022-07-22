@@ -3,6 +3,7 @@ from fastapi import FastAPI
 
 import auth
 import home
+import shop
 from core.config import settings
 from core.utils import get_logger
 
@@ -33,6 +34,7 @@ async def shutdown():
 
 
 app.include_router(auth.routers.router)
+app.include_router(shop.routers.router)
 app.include_router(home.routers.router)
 
 

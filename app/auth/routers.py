@@ -8,10 +8,9 @@ from core.config import settings
 from core.dependencies import engine_connect
 from core.persistence import Persistence
 from core.utils import get_logger, list_params
-from fastapi.param_functions import Form
 from jose import JWTError, jwt
 
-from . import hashers, models, schemas
+from . import forms, hashers, models, schemas
 from .backends import authentication
 
 logger = get_logger()
@@ -24,33 +23,13 @@ router = fastapi.APIRouter(
 )
 
 
-class OAuth2RequestForm:
-    def __init__(
-        self,
-        grant_type: str = Form(default=None, regex="password|refresh_token"),
-        username: str | None = Form(default=None),
-        password: str | None = Form(default=None),
-        refresh_token: str | None = Form(default=None),
-        scope: str = Form(default=""),
-        client_id: str | None = Form(default=None),
-        client_secret: str | None = Form(default=None),
-    ):
-        self.grant_type = grant_type
-        self.username = username
-        self.password = password
-        self.refresh_token = refresh_token
-        self.scopes = scope.split()
-        self.client_id = client_id
-        self.client_secret = client_secret
-
-
 @router.post(
     "/token",
     # response model is not specified to support both grant type `password` and `refresh_token`.
 )
 async def get_access_token(
     response: fastapi.Response,
-    form_data: OAuth2RequestForm = fastapi.Depends(),
+    form_data: forms.OAuth2RequestForm = fastapi.Depends(),
     conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
 ) -> dict:
     if form_data.grant_type == "password" and form_data.username and form_data.password:
@@ -252,11 +231,11 @@ async def get_user(
 )
 async def create_user(
     user: schemas.UserCreate,
-    # superuser: dict = fastapi.Depends(authentication.get_current_user),
+    superuser: dict = fastapi.Depends(authentication.get_current_user),
     conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
 ) -> schemas.User:
-    # if superuser is None:
-    #     raise exceptions.forbidden_exception()
+    if superuser is None:
+        raise exceptions.forbidden_exception()
 
     hashed_password = hashers.hasher.get_hashed_password(user.password)
 

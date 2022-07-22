@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     authentication_backend = "auth.backends.AuthenticationBackend"
 
     sqlalchemy_database_uri: PostgresDsn
+    sqlalchemy_echo: bool = True
     sqlalchemy_pool_size: int = 5
     sqlalchemy_max_overflow: int = 10
     sqlalchemy_pool_recycle: int = 3600  # recycle connection in seconds
