@@ -1,3 +1,5 @@
+import os
+
 import uvicorn
 from fastapi import FastAPI
 
@@ -5,6 +7,7 @@ import auth
 import home
 import shop
 from core.config import settings
+from core.database import engine
 from core.utils import get_logger
 
 logger = get_logger()
@@ -31,6 +34,9 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     logger.info("on shutdown")
+    # Engine disposal closes all connections of the connection pool
+    logger.debug(f"sqlalchemy.async.engine disposed - [{os.getpid()}]")
+    await engine.dispose()
 
 
 app.include_router(auth.routers.router)

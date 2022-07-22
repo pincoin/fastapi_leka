@@ -26,6 +26,3 @@ async def engine_connect() -> typing.Generator:
         # is released to the connection pool not actually closed.
 
         logger.debug(f"engine connection is implictly closed. - [{os.getpid()}]")
-
-    # engine.dispose() will close all connections of the connection pool.
-    # await engine.dispose()

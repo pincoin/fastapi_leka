@@ -9,6 +9,7 @@ email-validator==1.2.1
 python-multipart==0.0.5
 python-jose==3.3.0
 cryptography==37.0.2
+argon2-cffi==21.3.0
 SQLAlchemy==1.4.37
 alembic==1.8.0
 uvicorn==0.17.6

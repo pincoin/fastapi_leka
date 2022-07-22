@@ -6,6 +6,7 @@ import math
 import secrets
 from functools import lru_cache
 
+import argon2
 from core.config import settings
 
 
@@ -71,6 +72,28 @@ class Pbkdf2Sha256Hasher(BaseHasher):
             return True
 
         return False
+
+
+class Argon2idHasher(BaseHasher):
+    algorithm = "argoin2id"
+
+    ph = argon2.PasswordHasher(
+        memory_cost=2**16,
+        time_cost=3,
+        parallelism=4,
+        hash_len=32,
+        salt_len=16,
+        type=argon2.Type.ID,
+    )
+
+    def get_hashed_password(self, plain: str) -> str:
+        return self.ph.hash(plain)
+
+    def verify_password(self, plain: str, encoded: str) -> bool:
+        try:
+            return self.ph.verify(encoded, plain)
+        except:
+            return False
 
 
 @lru_cache(maxsize=1)
