@@ -20,14 +20,17 @@ kwargs = {
 
 logger.debug(f"database module imported - [{os.getpid()}]")
 
-# SQLAlchemy engine instance (lazy initialization)
-logger.debug(f"sqlalchemy.async.engine created - [{os.getpid()}]")
 
 engine = create_async_engine(
     # dialect+driver://username:password@host:port/database
     settings.sqlalchemy_database_uri,
     **kwargs,
 )
+
+# SQLAlchemy engine instance (lazy initialization)
+# Engine is a factory for connections as well as a pool of connections
+# Engine is held globally for the lifetime of a single application process.
+logger.debug(f"sqlalchemy.async.engine created - [{os.getpid()}]")
 
 
 @lru_cache(maxsize=1)

@@ -24,6 +24,8 @@ async def start_transaction(engine_connection: AsyncConnection) -> typing.Genera
     else:
         await engine_connection.begin()
 
+        # Use try-finally block
+        # because contextlib `with` block is not supported.
         try:
             yield engine_connection
         finally:
