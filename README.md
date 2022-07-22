@@ -1,14 +1,10 @@
-# fastapi-from-dj
-This is a FastAPI boilerplate template for quick start.
-
-This project watches the same database schemes which was installed by Django. You can authenticate users with Django-compatible authentication backend and password hasher. However, you can define your own authentication backend and password hasher.
-
+# fastapi_leka
 This project is based on Python 3.10+ and SQLAlchemy 1.4+ in order to utilize async connections and the lastest Python features.
 
 ## Features
 * SQLAlchemy Async Core + CRUD on PostgreSQL
 * Alembic migrations
-* OAuth2 + JWT (Django scheme-compatible)
+* OAuth2 + JWT
 
 # Getting started
 ## Requirements
@@ -41,6 +37,11 @@ jwt_algorithm="HS256"
 password_hasher="auth.hashers.Pbkdf2Sha256Hasher"
 authentication_backend="auth.backends.AuthenticationBackend"
 sqlalchemy_database_uri="postgresql+asyncpg://username:password@host:port/database"
+sqlalchemy_echo=True
+sqlalchemy_pool_size=5
+sqlalchemy_max_overflow=10
+sqlalchemy_pool_recycle=28800
+sqlalchemy_pool_timeout=30
 log_file="/path/to/logs/fastapi.log"
 ```
 

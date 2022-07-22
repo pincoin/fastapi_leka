@@ -34,6 +34,7 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     logger.info("on shutdown")
+
     # Engine disposal closes all connections of the connection pool
     logger.debug(f"sqlalchemy.async.engine disposed - [{os.getpid()}]")
     await engine.dispose()

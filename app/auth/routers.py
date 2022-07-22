@@ -59,6 +59,23 @@ async def get_access_token(
             expires_delta=refresh_token_expires,
         )
 
+        logger.debug(f"{user_dict} refresh_token: {refresh_token}")
+
+        token_dict = {
+            "user_id": user_dict["id"],
+            "token": refresh_token,
+            "expiration_time_delta": refresh_token_expires,
+            "created": datetime.datetime.now(),
+        }
+
+        logger.debug(token_dict)
+
+        stmt = models.tokens.insert().values(**token_dict)
+        try:
+            await Persistence(conn).insert(stmt)
+        except sa.exc.IntegrityError:
+            raise exceptions.conflict_exception()
+
         response.headers["cache-control"] = "no-store"
 
         return {
@@ -140,7 +157,6 @@ async def get_refresh_token(
     if user is None:
         raise exceptions.forbidden_exception()
 
-    logger.debug(user)
     refresh_token_expires = datetime.timedelta(
         minutes=settings.jwt_refresh_expiration_delta,
     )
@@ -149,7 +165,7 @@ async def get_refresh_token(
         expires_delta=refresh_token_expires,
     )
 
-    logger.debug(refresh_token)
+    logger.debug(f"{user} refresh_token: {refresh_token}")
 
     token_dict = {
         "user_id": user["id"],
@@ -247,6 +263,8 @@ async def create_user(
         "date_joined": datetime.datetime.now(),
         "last_login": None,
     }
+
+    logger.debug(f"user_dict: {user_dict}")
 
     stmt = models.users.insert().values(**user_dict)
 

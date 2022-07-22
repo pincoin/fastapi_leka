@@ -12,7 +12,6 @@ logger.debug(f"core dependency module imported - [{os.getpid()}]")
 
 
 async def engine_connect() -> typing.Generator:
-
     # “BEGIN (implicit)” starts transaction block by DBAPI (ie. PostgreSQL)
     # even though SQLAlchemy did not actually send any command to the database.
     #
@@ -24,5 +23,4 @@ async def engine_connect() -> typing.Generator:
 
         # At the end of the with: block, the Connection
         # is released to the connection pool not actually closed.
-
         logger.debug(f"engine connection is implictly closed. - [{os.getpid()}]")

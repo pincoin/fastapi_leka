@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     sqlalchemy_echo: bool = True
     sqlalchemy_pool_size: int = 5
     sqlalchemy_max_overflow: int = 10
-    sqlalchemy_pool_recycle: int = 3600  # recycle connection in seconds
+    sqlalchemy_pool_recycle: int = 28800  # recycle connection in seconds
     sqlalchemy_pool_timeout: int = 30  # raise TimeoutError
 
     log_file: str = "fastapi.log"
