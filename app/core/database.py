@@ -18,9 +18,11 @@ kwargs = {
     "pool_timeout": settings.sqlalchemy_pool_timeout,
 }
 
+logger.debug(f"database module imported - [{os.getpid()}]")
 
 # SQLAlchemy engine instance (lazy initialization)
 logger.debug(f"sqlalchemy.async.engine created - [{os.getpid()}]")
+
 engine = create_async_engine(
     # dialect+driver://username:password@host:port/database
     settings.sqlalchemy_database_uri,

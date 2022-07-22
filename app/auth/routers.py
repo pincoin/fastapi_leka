@@ -252,11 +252,11 @@ async def get_user(
 )
 async def create_user(
     user: schemas.UserCreate,
-    superuser: dict = fastapi.Depends(authentication.get_superuser),
+    # superuser: dict = fastapi.Depends(authentication.get_current_user),
     conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
 ) -> schemas.User:
-    if superuser is None:
-        raise exceptions.forbidden_exception()
+    # if superuser is None:
+    #     raise exceptions.forbidden_exception()
 
     hashed_password = hashers.hasher.get_hashed_password(user.password)
 

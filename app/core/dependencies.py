@@ -8,6 +8,8 @@ from .database import engine
 
 logger = get_logger()
 
+logger.debug(f"core dependency module imported - [{os.getpid()}]")
+
 
 async def engine_connect() -> typing.Generator:
     """
@@ -18,5 +20,5 @@ async def engine_connect() -> typing.Generator:
         logger.debug(f"engine.connect() - [{os.getpid()}]")
         yield conn
 
-    logger.debug(f"engine implcit close()/dispose() - [{os.getpid()}]")
+    logger.debug(f"engine connection is implictly closed. - [{os.getpid()}]")
     # await engine.dispose()

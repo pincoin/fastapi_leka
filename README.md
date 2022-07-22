@@ -44,6 +44,12 @@ sqlalchemy_database_uri="postgresql+asyncpg://username:password@host:port/databa
 log_file="/path/to/logs/fastapi.log"
 ```
 
+50-characters secret_key can be generated from command liine like this:
+
+```
+base64 < /dev/urandom | tr -d 'O0Il1+/' | head -c 50; printf '\n'
+```
+
 You may create the `app/production.env` separate file for the production server, and you can run server by setting environment variable `ENV_STATE=production`.
 
 All `*.env` files are hidden for security by `.gitignore`.
