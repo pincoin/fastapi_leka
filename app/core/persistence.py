@@ -1,11 +1,18 @@
 import contextlib
 import typing
+from asyncio.log import logger
 
 import sqlalchemy as sa
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio.engine import AsyncConnection
 
+from core.utils import get_logger
+
 from . import exceptions
+
+logger = get_logger()
+
+logger.debug("persistence module imported")
 
 
 @contextlib.asynccontextmanager
