@@ -243,3 +243,4 @@ alembic.ini
 ssl/
 logs/
 run/
+.vscode/
