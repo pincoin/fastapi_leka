@@ -10,7 +10,7 @@ from jose import JWTError, jwt
 
 from auth import services
 
-from . import forms, models, schemas
+from . import forms, schemas
 from .backends import authentication
 
 logger = get_logger()
