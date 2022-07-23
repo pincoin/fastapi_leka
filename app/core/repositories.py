@@ -1,10 +1,8 @@
-import os
 import typing
 
 import sqlalchemy as sa
 from pydantic import BaseModel
 from sqlalchemy.engine import CursorResult
-from sqlalchemy.ext.asyncio.engine import AsyncConnection
 
 from core import exceptions
 from core.utils import get_logger

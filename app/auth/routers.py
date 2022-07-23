@@ -3,13 +3,14 @@ import typing
 
 import fastapi
 import sqlalchemy as sa
-from auth import repositories
 from core import exceptions
 from core.config import settings
 from core.dependencies import engine_connect
 from core.persistence import Persistence
 from core.utils import get_logger, list_params
 from jose import JWTError, jwt
+
+from auth import repositories
 
 from . import forms, hashers, models, schemas
 from .backends import authentication
@@ -31,13 +32,14 @@ router = fastapi.APIRouter(
 async def get_access_token(
     response: fastapi.Response,
     form_data: forms.OAuth2RequestForm = fastapi.Depends(),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    token_repo: repositories.TokenRepository = fastapi.Depends(
+        repositories.TokenRepository
+    ),
 ) -> dict:
     if form_data.grant_type == "password" and form_data.username and form_data.password:
         user_dict = await authentication.authenticate(
             form_data.username,
             form_data.password,
-            conn,
         )
 
         if not user_dict:
@@ -70,12 +72,7 @@ async def get_access_token(
         }
 
         logger.debug(token_dict)
-
-        stmt = models.tokens.insert().values(**token_dict)
-        try:
-            await Persistence(conn).insert(stmt)
-        except sa.exc.IntegrityError:
-            raise exceptions.conflict_exception()
+        await token_repo.create_refresh_token(token_dict)
 
         response.headers["cache-control"] = "no-store"
 
@@ -100,22 +97,7 @@ async def get_access_token(
 
             user_id: int = payload.get("id")
 
-            stmt = (
-                sa.select(
-                    models.tokens,
-                    models.users.c.username,
-                )
-                .join_from(
-                    models.tokens,
-                    models.users,
-                )
-                .where(
-                    models.tokens.c.user_id == user_id,
-                    models.users.c.is_active == True,
-                )
-            )
-
-            if (token_row := await Persistence(conn).get_one_or_none(stmt)) is None:
+            if (token_row := await token_repo.find_by_user_id(user_id)) is None:
                 raise exceptions.invalid_token_exception()
 
             token_dict = token_row._mapping
@@ -156,7 +138,6 @@ async def get_refresh_token(
         repositories.TokenRepository
     ),
 ) -> dict:
-    logger.debug("get refresh token")
     if user is None:
         raise exceptions.forbidden_exception()
 
@@ -178,8 +159,6 @@ async def get_refresh_token(
     }
 
     logger.debug(token_dict)
-
-    logger.debug("router 1")
     await token_repo.create_refresh_token(token_dict)
 
     response.headers["cache-control"] = "no-store"
@@ -202,23 +181,20 @@ async def list_users(
     is_superuser: bool | None = False,
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_repo: repositories.UserRepository = fastapi.Depends(
+        repositories.UserRepository
+    ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = sa.select(models.users)
-
-    if is_active:
-        stmt = stmt.where(models.users.c.is_active == is_active)
-    if is_staff:
-        stmt = stmt.where(models.users.c.is_staff == is_staff)
-    if is_superuser:
-        stmt = stmt.where(models.users.c.is_superuser == is_superuser)
-
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
+    return await user_repo.find_all(
+        is_active,
+        is_staff,
+        is_superuser,
+        params["skip"],
+        params["take"],
+    )
 
 
 @router.get(

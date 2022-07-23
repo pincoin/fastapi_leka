@@ -13,6 +13,8 @@ from core.persistence import Persistence
 from core.utils import get_logger
 from jose import JWTError, jwt
 
+from auth import repositories
+
 from . import hashers, models
 
 logger = get_logger()
@@ -92,14 +94,8 @@ class AuthenticationBackend(BaseAuthenticationBackend):
         self,
         username: str,
         password: str,
-        conn: sa.ext.asyncio.engine.AsyncConnection,
     ) -> dict | None:
-        stmt = sa.select(models.users).where(
-            models.users.c.username == username,
-            models.users.c.is_active == True,
-        )
-
-        user_row = await Persistence(conn).get_one_or_none(stmt)
+        user_row = await repositories.UserRepository().find_by_username(username)
 
         if not user_row:
             return False
