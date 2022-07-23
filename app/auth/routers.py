@@ -5,8 +5,6 @@ import fastapi
 import sqlalchemy as sa
 from core import exceptions
 from core.config import settings
-from core.dependencies import engine_connect
-from core.persistence import Persistence
 from core.utils import get_logger, list_params
 from jose import JWTError, jwt
 
@@ -291,30 +289,18 @@ async def list_permissions_of_user(
     user_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(
-            models.permissions,
-            models.content_types.c.app_label,
-            models.content_types.c.model,
-        )
-        .join_from(
-            models.content_types,
-            models.permissions,
-        )
-        .join_from(
-            models.permissions,
-            models.user_permissions,
-        )
-        .where(models.user_permissions.c.user_id == user_id)
+    return await permission_service.find_by_user_id(
+        user_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.get(
@@ -327,21 +313,19 @@ async def list_content_types(
     app_label: str | None = fastapi.Query(default=None, max_length=100),
     model: str | None = fastapi.Query(default=None, max_length=100),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
+    ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = sa.select(models.content_types)
-
-    if app_label:
-        stmt = stmt.where(models.content_types.c.app_label == app_label)
-    if model:
-        stmt = stmt.where(models.content_types.c.app_label == model)
-
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
+    return await content_type_service.find_all(
+        app_label,
+        model,
+        params["skip"],
+        params["take"],
+    )
 
 
 @router.get(
@@ -352,18 +336,14 @@ async def list_content_types(
 async def get_content_type(
     content_type_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
+    ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = sa.select(models.content_types).where(
-        models.content_types.c.id == content_type_id
-    )
-
-    return await Persistence(conn).get_one_or_404(
-        stmt, schemas.ContentType.Config().title
-    )
+    return await content_type_service.find_by_id(content_type_id)
 
 
 @router.post(
@@ -374,19 +354,15 @@ async def get_content_type(
 async def create_content_type(
     content_type: schemas.ContentTypeCreate,
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
+    ),
 ) -> schemas.ContentType:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    content_type_dict = content_type.dict()
-    stmt = models.content_types.insert().values(**content_type_dict)
-
     try:
-        return schemas.ContentType(
-            **content_type_dict,
-            id=await Persistence(conn).insert(stmt),
-        )
+        return await content_type_service.create(content_type)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -400,27 +376,15 @@ async def update_content_type(
     content_type: schemas.ContentTypeUpdate,
     content_type_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
+    ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    content_type_dict = content_type.dict(exclude_unset=True)
-
-    if not content_type_dict:
-        raise exceptions.bad_request_exception()
-
-    stmt = sa.update(models.content_types).where(
-        models.content_types.c.id == content_type_id
-    )
-
     try:
-        content_type_model = await Persistence(conn).update_or_failure(
-            stmt,
-            content_type_dict,
-            schemas.ContentType,
-        )
-        return fastapi.encoders.jsonable_encoder(content_type_model)
+        return await content_type_service.update_by_id(content_type, content_type_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -433,15 +397,14 @@ async def update_content_type(
 async def delete_content_type(
     content_type_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
+    ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = models.content_types.delete().where(
-        models.content_types.c.id == content_type_id
-    )
-    await Persistence(conn).delete_one_or_404(stmt, "Content Type")
+    await content_type_service.delete_by_id(content_type_id)
 
 
 @router.get(
@@ -453,26 +416,18 @@ async def list_permissions_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(
-            models.permissions,
-            models.content_types.c.app_label,
-            models.content_types.c.model,
-        )
-        .join_from(
-            models.permissions,
-            models.content_types,
-        )
-        .where(models.content_types.c.id == content_type_id)
+    return await permission_service.find_by_content_type_id(
+        content_type_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.post(
@@ -484,22 +439,17 @@ async def create_permission_of_content_type(
     permission: schemas.PermissionCreate,
     content_type_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> schemas.Permission:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    permission_dict = permission.dict()
-
-    if permission_dict["content_type_id"] != content_type_id:
-        raise exceptions.bad_request_exception()
-
-    stmt = models.permissions.insert().values(**permission_dict)
-
     try:
-        return schemas.Permission(
-            **permission_dict,
-            id=await Persistence(conn).insert(stmt),
+        return await permission_service.create(
+            permission,
+            content_type_id,
         )
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
@@ -515,28 +465,19 @@ async def update_permission_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    permission_dict = permission.dict(exclude_unset=True)
-
-    if not permission_dict:
-        raise exceptions.bad_request_exception()
-
-    if permission_dict["content_type_id"] != content_type_id:
-        raise exceptions.bad_request_exception()
-
-    stmt = sa.update(models.permissions).where(models.permissions.c.id == permission_id)
-
     try:
-        permission_model = await Persistence(conn).update_or_failure(
-            stmt,
-            permission_dict,
-            schemas.Permission,
+        return await permission_service.update(
+            permission,
+            content_type_id,
+            permission_id,
         )
-        return fastapi.encoders.jsonable_encoder(permission_model)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -550,16 +491,17 @@ async def delete_permission_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = models.permissions.delete().where(
-        models.permissions.c.id == permission_id,
-        models.permissions.c.content_type_id == content_type_id,
+    await permission_service.delete_by_id(
+        content_type_id,
+        permission_id,
     )
-    await Persistence(conn).delete_one_or_404(stmt, "Permission")
 
 
 @router.get(
@@ -570,13 +512,15 @@ async def delete_permission_of_content_type(
 async def list_groups(
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = sa.select(models.groups).offset(params["skip"]).limit(params["take"])
-    return await Persistence(conn).get_all(stmt)
+    return await group_service.find_all(
+        params["skip"],
+        params["take"],
+    )
 
 
 @router.get(
@@ -587,13 +531,12 @@ async def list_groups(
 async def get_group(
     group_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = sa.select(models.groups).where(models.groups.c.id == group_id)
-    return await Persistence(conn).get_one_or_404(stmt, schemas.Group.Config().title)
+    return await group_service.find_by_id(group_id)
 
 
 @router.post(
@@ -604,18 +547,13 @@ async def get_group(
 async def create_group(
     group: schemas.GroupCreate,
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> schemas.Group:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    group_dict = group.dict()
-    stmt = models.groups.insert().values(**group_dict)
     try:
-        return schemas.Group(
-            **group_dict,
-            id=await Persistence(conn).insert(stmt),
-        )
+        return await group_service.create(group)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -629,25 +567,13 @@ async def update_group(
     group: schemas.GroupUpdate,
     group_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    group_dict = group.dict(exclude_unset=True)
-
-    if not group_dict:
-        raise exceptions.bad_request_exception()
-
-    stmt = sa.update(models.groups).where(models.groups.c.id == group_id)
-
     try:
-        group_model = await Persistence(conn).update_or_failure(
-            stmt,
-            group_dict,
-            schemas.Group,
-        )
-        return fastapi.encoders.jsonable_encoder(group_model)
+        return await group_service.update_by_id(group, group_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -660,13 +586,12 @@ async def update_group(
 async def delete_group(
     group_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = models.groups.delete().where(models.groups.c.id == group_id)
-    await Persistence(conn).delete_one_or_404(stmt, "Group")
+    group_service.delete_by_id(group_id)
 
 
 @router.get(
@@ -679,22 +604,16 @@ async def list_users_of_group(
     group_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(models.users)
-        .join_from(
-            models.users,
-            models.user_groups,
-        )
-        .where(models.groups.c.id == group_id)
+    return await group_service.find_by_group_id(
+        group_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.get(
@@ -706,30 +625,18 @@ async def list_permissions_of_group(
     group_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(
-            models.permissions,
-            models.content_types.c.app_label,
-            models.content_types.c.model,
-        )
-        .join_from(
-            models.content_types,
-            models.permissions,
-        )
-        .join_from(
-            models.permissions,
-            models.group_permissions,
-        )
-        .where(models.group_permissions.c.group_id == group_id)
+    return await permission_service.find_by_group_id(
+        group_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.post(
@@ -741,23 +648,13 @@ async def create_user_of_group(
     group_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> schemas.UserGroup:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    user_group_dict = {
-        "user_id": user_id,
-        "group_id": group_id,
-    }
-
-    stmt = models.user_groups.insert().values(**user_group_dict)
-
     try:
-        return schemas.UserGroup(
-            **user_group_dict,
-            id=await Persistence(conn).insert(stmt),
-        )
+        return await group_service.add_user(group_id, user_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -771,16 +668,12 @@ async def delete_user_of_group(
     group_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = models.user_groups.delete().where(
-        models.user_groups.c.user_id == user_id,
-        models.user_groups.c.group_id == group_id,
-    )
-    await Persistence(conn).delete_one_or_404(stmt, "User Group")
+    group_service.remove_user(group_id, user_id)
 
 
 @router.get(
@@ -791,22 +684,17 @@ async def delete_user_of_group(
 async def list_permissions(
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = sa.select(
-        models.permissions,
-        models.content_types.c.app_label,
-        models.content_types.c.model,
-    ).join_from(
-        models.permissions,
-        models.content_types,
+    return await permission_service.find_all(
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.get(
@@ -817,27 +705,14 @@ async def list_permissions(
 async def get_permission(
     permission_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    permission_service: services.PermissionService = fastapi.Depends(
+        services.PermissionService
+    ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(
-            models.permissions,
-            models.content_types.c.app_label,
-            models.content_types.c.model,
-        )
-        .join_from(
-            models.permissions,
-            models.content_types,
-        )
-        .where(models.permissions.c.id == permission_id)
-    )
-
-    return await Persistence(conn).get_one_or_404(
-        stmt, schemas.Permission.Config().title
-    )
+    return await permission_service.find_by_id(permission_id)
 
 
 @router.get(
@@ -850,21 +725,16 @@ async def list_users_of_permission(
     params: dict = fastapi.Depends(list_params),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(models.users)
-        .join_from(
-            models.users,
-            models.user_permissions,
-        )
-        .where(models.user_permissions.c.permission_id == permission_id)
+    return await user_service.find_by_permission_id(
+        permission_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.get(
@@ -876,22 +746,16 @@ async def list_groups_of_permission(
     permission_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(models.groups)
-        .join_from(
-            models.groups,
-            models.group_permissions,
-        )
-        .where(models.permissions.c.permission_id == permission_id)
+    return await group_service.find_by_permission_id(
+        permission_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.post(
@@ -903,23 +767,13 @@ async def create_permission_of_user(
     permission_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> schemas.UserPermission:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    user_permission_dict = {
-        "permission_id": permission_id,
-        "user_id": user_id,
-    }
-
-    stmt = models.user_permissions.insert().values(**user_permission_dict)
-
     try:
-        return schemas.UserPermission(
-            **user_permission_dict,
-            id=await Persistence(conn).insert(stmt),
-        )
+        return await user_service.add_permission(permission_id, user_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -933,16 +787,12 @@ async def delete_permission_of_user(
     permission_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = models.user_permissions.delete().where(
-        models.user_permissions.c.user_id == user_id,
-        models.user_permissions.c.permission_id == permission_id,
-    )
-    await Persistence(conn).delete_one_or_404(stmt, "User Permission")
+    await user_service.remove_permission(permission_id, user_id)
 
 
 @router.post(
@@ -954,23 +804,13 @@ async def create_permission_of_group(
     permission_id: int = fastapi.Query(gt=0),
     group_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> schemas.GroupPermission:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    group_permission_dict = {
-        "permission_id": permission_id,
-        "group_id": group_id,
-    }
-
-    stmt = models.group_permissions.insert().values(**group_permission_dict)
-
     try:
-        return schemas.GroupPermission(
-            **group_permission_dict,
-            id=await Persistence(conn).insert(stmt),
-        )
+        return await group_service.add_permission(permission_id, group_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -984,16 +824,12 @@ async def delete_permission_of_group(
     permission_id: int = fastapi.Query(gt=0),
     group_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = models.group_permissions.delete().where(
-        models.group_permissions.c.group_id == group_id,
-        models.group_permissions.c.permission_id == permission_id,
-    )
-    await Persistence(conn).delete_one_or_404(stmt, "Group Permission")
+    await group_service.remove_permission(permission_id, group_id)
 
 
 @router.get(
@@ -1005,19 +841,15 @@ async def list_content_types_of_permission(
     permission_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
+    ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(models.content_types)
-        .join_from(
-            models.content_types,
-            models.permissions,
-        )
-        .where(models.permissions.c.id == permission_id)
+    return await content_type_service.find_by_permission_id(
+        permission_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
