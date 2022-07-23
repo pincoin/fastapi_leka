@@ -3,6 +3,7 @@ import typing
 
 import fastapi
 import sqlalchemy as sa
+from auth import repositories
 from core import exceptions
 from core.config import settings
 from core.dependencies import engine_connect
@@ -151,7 +152,9 @@ async def get_access_token(
 async def get_refresh_token(
     response: fastapi.Response,
     user: dict = fastapi.Depends(authentication.get_current_user),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    token_repo: repositories.TokenRepository = fastapi.Depends(
+        repositories.TokenRepository
+    ),
 ) -> dict:
     logger.debug("get refresh token")
     if user is None:
@@ -176,11 +179,8 @@ async def get_refresh_token(
 
     logger.debug(token_dict)
 
-    stmt = models.tokens.insert().values(**token_dict)
-    try:
-        await Persistence(conn).insert(stmt)
-    except sa.exc.IntegrityError:
-        raise exceptions.conflict_exception()
+    logger.debug("router 1")
+    await token_repo.create_refresh_token(token_dict)
 
     response.headers["cache-control"] = "no-store"
 
