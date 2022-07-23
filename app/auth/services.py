@@ -56,8 +56,8 @@ class UserService(BaseRepository):
         is_active: bool,
         is_staff: bool,
         is_superuser: bool,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.users)
 
@@ -107,8 +107,8 @@ class UserService(BaseRepository):
     async def find_by_group_id(
         self,
         group_id: int,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(auth_models.users)
@@ -125,8 +125,10 @@ class UserService(BaseRepository):
     async def find_by_permission_id(
         self,
         permission_id: int,
-        skip: int,
-        take: int,
+        is_active=True,
+        include_superusers=True,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(auth_models.users)
@@ -136,6 +138,13 @@ class UserService(BaseRepository):
             )
             .where(auth_models.user_permissions.c.permission_id == permission_id)
         )
+
+        if is_active:
+            stmt = stmt.where(auth_models.users.c.is_active == True)
+
+        if not include_superusers:
+            stmt = stmt.where(auth_models.users.c.is_superuser == False)
+
         stmt = stmt.offset(skip).limit(take)
         return await self.get_all(stmt)
 
@@ -229,8 +238,8 @@ class UserService(BaseRepository):
 class GroupService(BaseRepository):
     async def find_all(
         self,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.groups).offset(skip).limit(take)
         return await self.get_all(stmt)
@@ -245,8 +254,8 @@ class GroupService(BaseRepository):
     async def find_by_user_id(
         self,
         user_id: int,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(auth_models.groups)
@@ -266,8 +275,8 @@ class GroupService(BaseRepository):
     async def find_by_permission_id(
         self,
         permission_id: int,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(auth_models.groups)
@@ -379,8 +388,8 @@ class GroupService(BaseRepository):
 class PermissionService(BaseRepository):
     async def find_all(
         self,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ) -> list[typing.Any]:
         stmt = sa.select(
             auth_models.permissions,
@@ -392,6 +401,75 @@ class PermissionService(BaseRepository):
         )
 
         stmt = stmt.offset(skip).limit(take)
+
+        return await self.get_all(stmt)
+
+    async def find_all_by_user_id(
+        self,
+        user_id: int,
+    ):
+        # 1. Caching required!
+        # 2. Rules assumption required for tuning
+        # - Rule 1: User-Permission many-to-many relations are disabled.
+        # - Rule 2: Each user has to be a member of a group.
+        # - Rule 3: User-Group relations is one-to-one.
+        stmt1 = (
+            sa.select(
+                auth_models.permissions,
+                auth_models.content_types.c.app_label,
+                auth_models.content_types.c.model,
+            )
+            .join_from(
+                auth_models.content_types,
+                auth_models.permissions,
+            )
+            .join_from(
+                auth_models.permissions,
+                auth_models.user_permissions,
+            )
+            .join_from(
+                auth_models.user_permissions,
+                auth_models.users,
+            )
+            .where(
+                auth_models.users.c.user_id == user_id,
+                auth_models.users.c.is_active == True,
+            )
+        )
+
+        stmt2 = (
+            sa.select(
+                auth_models.permissions,
+                auth_models.content_types.c.app_label,
+                auth_models.content_types.c.model,
+            )
+            .join_from(
+                auth_models.content_types,
+                auth_models.permissions,
+            )
+            .join_from(
+                auth_models.permissions,
+                auth_models.group_permissions,
+            )
+            .join_from(
+                auth_models.group_permissions,
+                auth_models.groups,
+            )
+            .join_from(
+                auth_models.groups,
+                auth_models.user_groups,
+            )
+            .join_from(
+                auth_models.user_groups,
+                auth_models.users,
+            )
+            .where(
+                auth_models.users.c.user_id == user_id,
+                auth_models.users.c.is_active == True,
+            )
+        )
+
+        stmt = sa.union(stmt1, stmt2)
 
         return await self.get_all(stmt)
 
@@ -417,8 +495,8 @@ class PermissionService(BaseRepository):
     async def find_by_user_id(
         self,
         user_id: int,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(
@@ -451,8 +529,8 @@ class PermissionService(BaseRepository):
     async def find_by_group_id(
         self,
         group_id: int,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(
@@ -474,11 +552,53 @@ class PermissionService(BaseRepository):
 
         return await self.get_all(stmt)
 
+    async def find_by_group_id_by_user_id(
+        self,
+        user_id: int,
+        skip: int | None = 0,
+        take: int | None = 100,
+    ):
+        # permissions belongs to group which belongs to user
+        stmt = (
+            sa.select(
+                auth_models.permissions,
+                auth_models.content_types.c.app_label,
+                auth_models.content_types.c.model,
+            )
+            .join_from(
+                auth_models.content_types,
+                auth_models.permissions,
+            )
+            .join_from(
+                auth_models.permissions,
+                auth_models.group_permissions,
+            )
+            .join_from(
+                auth_models.group_permissions,
+                auth_models.groups,
+            )
+            .join_from(
+                auth_models.groups,
+                auth_models.user_groups,
+            )
+            .join_from(
+                auth_models.user_groups,
+                auth_models.users,
+            )
+            .where(
+                auth_models.users.c.user_id == user_id,
+                auth_models.users.c.is_active == True,
+            )
+        )
+        stmt = stmt.offset(skip).limit(take)
+
+        return await self.get_all(stmt)
+
     async def find_by_content_type_id(
         self,
         content_type_id: int,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(
@@ -502,8 +622,8 @@ class ContentTypeService(BaseRepository):
         self,
         app_label: str,
         model: str,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.content_types)
 
@@ -529,8 +649,8 @@ class ContentTypeService(BaseRepository):
     async def find_by_permission_id(
         self,
         permission_id: int,
-        skip: int,
-        take: int,
+        skip: int | None = 0,
+        take: int | None = 100,
     ):
         stmt = (
             sa.select(auth_models.content_types)

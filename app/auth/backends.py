@@ -8,13 +8,12 @@ import fastapi
 import sqlalchemy as sa
 from core import exceptions
 from core.config import settings
-from core.persistence import Persistence
 from core.utils import get_logger
 from jose import JWTError, jwt
 
 from auth import services
 
-from . import hashers, models
+from . import hashers
 
 logger = get_logger()
 
@@ -153,152 +152,29 @@ class AuthenticationBackend(BaseAuthenticationBackend):
     async def get_user_permissions(
         self,
         user_id: int,
-        conn: sa.ext.asyncio.engine.AsyncConnection,
     ) -> list[typing.Any]:
         # permissions belongs to user
-        stmt = (
-            sa.select(
-                models.permissions,
-                models.content_types.c.app_label,
-                models.content_types.c.model,
-            )
-            .join_from(
-                models.content_types,
-                models.permissions,
-            )
-            .join_from(
-                models.permissions,
-                models.user_permissions,
-            )
-            .join_from(
-                models.user_permissions,
-                models.user,
-            )
-            .where(
-                models.users.c.user_id == user_id,
-                models.users.c.is_active == True,
-            )
-        )
-
-        return await Persistence(conn).get_all(stmt)
+        return await services.PermissionService().find_by_user_id(user_id)
 
     async def get_group_permissions(
         self,
         user_id: int,
-        conn: sa.ext.asyncio.engine.AsyncConnection,
     ) -> list[typing.Any]:
         # permissions belongs to group which belongs to user
-        stmt = (
-            sa.select(
-                models.permissions,
-                models.content_types.c.app_label,
-                models.content_types.c.model,
-            )
-            .join_from(
-                models.content_types,
-                models.permissions,
-            )
-            .join_from(
-                models.permissions,
-                models.group_permissions,
-            )
-            .join_from(
-                models.group_permissions,
-                models.groups,
-            )
-            .join_from(
-                models.groups,
-                models.user_groups,
-            )
-            .join_from(
-                models.user_groups,
-                models.users,
-            )
-            .where(
-                models.users.c.user_id == user_id,
-                models.users.c.is_active == True,
-            )
-        )
-
-        return await Persistence(conn).get_all(stmt)
+        return await services.PermissionService().find_by_group_id_by_user_id(user_id)
 
     async def get_all_permissions(
         self,
         user_id: int,
-        conn: sa.ext.asyncio.engine.AsyncConnection,
     ) -> list[typing.Any]:
-        # 1. Caching required!
-        # 2. Rules assumption required for tuning
-        # - Rule 1: User-Permission many-to-many relations are disabled.
-        # - Rule 2: Each user has to be a member of a group.
-        # - Rule 3: User-Group relations is one-to-one.
-        stmt1 = (
-            sa.select(
-                models.permissions,
-                models.content_types.c.app_label,
-                models.content_types.c.model,
-            )
-            .join_from(
-                models.content_types,
-                models.permissions,
-            )
-            .join_from(
-                models.permissions,
-                models.user_permissions,
-            )
-            .join_from(
-                models.user_permissions,
-                models.users,
-            )
-            .where(
-                models.users.c.user_id == user_id,
-                models.users.c.is_active == True,
-            )
-        )
-
-        stmt2 = (
-            sa.select(
-                models.permissions,
-                models.content_types.c.app_label,
-                models.content_types.c.model,
-            )
-            .join_from(
-                models.content_types,
-                models.permissions,
-            )
-            .join_from(
-                models.permissions,
-                models.group_permissions,
-            )
-            .join_from(
-                models.group_permissions,
-                models.groups,
-            )
-            .join_from(
-                models.groups,
-                models.user_groups,
-            )
-            .join_from(
-                models.user_groups,
-                models.users,
-            )
-            .where(
-                models.users.c.user_id == user_id,
-                models.users.c.is_active == True,
-            )
-        )
-
-        stmt = sa.union(stmt1, stmt2)
-
-        return await Persistence(conn).get_all(stmt)
+        return await services.PermissionService().find_all_by_user_id(user_id)
 
     async def has_perm(
         self,
         user_id: int,
         permission_id: int,
-        conn: sa.ext.asyncio.engine.AsyncConnection,
     ) -> bool:
-        perms = await self.get_all_permissions(user_id, conn)
+        perms = await self.get_all_permissions(user_id)
         return any(d["id"] == permission_id for d in [perm._mapping for perm in perms])
 
     async def has_module_perm(
@@ -315,26 +191,14 @@ class AuthenticationBackend(BaseAuthenticationBackend):
     async def with_perm(
         self,
         permission_id: int,
-        conn: sa.ext.asyncio.engine.AsyncConnection,
         is_active=True,
         include_superusers=True,
     ) -> list[typing.Any]:
-        stmt = (
-            sa.select(models.users)
-            .join_from(
-                models.users,
-                models.user_permissions,
-            )
-            .where(models.user_permissions.c.permission_id == permission_id)
+        return await services.UserService().find_by_permission_id(
+            permission_id,
+            is_active,
+            include_superusers,
         )
-
-        if is_active:
-            stmt = stmt.where(models.users.c.is_active == True)
-
-        if not include_superusers:
-            stmt = stmt.where(models.users.c.is_superuser == False)
-
-        return await Persistence(conn).get_all(stmt)
 
 
 @lru_cache(maxsize=1)

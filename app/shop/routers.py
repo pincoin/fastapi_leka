@@ -1,11 +1,10 @@
 import typing
 
 import fastapi
-import sqlalchemy as sa
-from auth import models as auth_models
 from auth import schemas as auth_schemas
-from core.dependencies import engine_connect
-from core.persistence import Persistence
+from auth import services as auth_services
+from auth.backends import authentication
+from core import exceptions
 from core.utils import get_logger, list_params
 
 logger = get_logger()
@@ -19,27 +18,21 @@ router = fastapi.APIRouter(
 
 
 @router.get(
-    "/users",
+    "/permissions",
     status_code=fastapi.status.HTTP_200_OK,
-    response_model=list[auth_schemas.User],
-    response_model_exclude={"password"},
+    response_model=list[auth_schemas.PermissionContentType],
 )
-async def list_users(
-    is_active: bool | None = True,
-    is_staff: bool | None = False,
-    is_superuser: bool | None = False,
+async def list_permissions(
     params: dict = fastapi.Depends(list_params),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    superuser: dict = fastapi.Depends(authentication.get_superuser),
+    permission_service: auth_services.PermissionService = fastapi.Depends(
+        auth_services.PermissionService
+    ),
 ) -> list[typing.Any]:
-    stmt = sa.select(auth_models.users)
+    if superuser is None:
+        raise exceptions.forbidden_exception()
 
-    if is_active:
-        stmt = stmt.where(auth_models.users.c.is_active == is_active)
-    if is_staff:
-        stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-    if is_superuser:
-        stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
-
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
+    return await permission_service.find_all(
+        params["skip"],
+        params["take"],
+    )
