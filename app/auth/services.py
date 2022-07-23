@@ -1,14 +1,15 @@
-import typing
 import datetime
+import typing
 
+import fastapi
 import sqlalchemy as sa
 from core import exceptions
 from core.repositories import BaseRepository
 from core.utils import get_logger
 
+from . import hashers
 from . import models as auth_models
 from . import schemas as auth_schemas
-from . import hashers
 
 logger = get_logger()
 
@@ -79,9 +80,11 @@ class UserService(BaseRepository):
         )
         return await self.get_one_or_none(stmt)
 
-    async def create(self, user):
+    async def create(self, user: auth_schemas.UserCreate):
+        logger.debug(user)
+
         hashed_password = hashers.hasher.get_hashed_password(user.password)
-        logger.debug("create 3")
+
         user_dict = user.dict() | {
             "password": hashed_password,
             "is_active": True,
@@ -90,17 +93,34 @@ class UserService(BaseRepository):
             "date_joined": datetime.datetime.now(),
             "last_login": None,
         }
-        logger.debug("create 4")
-        stmt = auth_models.users.insert().values(**user_dict)
-        logger.debug("create 5")
-        logger.debug(stmt)
-        logger.debug("create 6")
-        id = await self.insert(stmt)
-        logger.debug("create 7")
-        logger.debug(id)
-        logger.debug(user_dict)
 
-        return auth_schemas.User(id=id, **user_dict)
+        logger.debug(f"user_dict: {user_dict}")
+
+        stmt = auth_models.users.insert().values(**user_dict)
+
+        return auth_schemas.User(
+            **user_dict,
+            id=await self.insert(stmt),
+        )
+
+    async def update_by_id(self, user: auth_schemas.UserCreate, user_id: int):
+        user_dict = user.dict(exclude_unset=True)
+
+        if not user_dict:
+            raise exceptions.bad_request_exception()
+
+        stmt = sa.update(auth_models.users).where(auth_models.users.c.id == user_id)
+
+        user_model = await self.update_or_failure(
+            stmt,
+            user_dict,
+            auth_schemas.User,
+        )
+        return fastapi.encoders.jsonable_encoder(user_model)
+
+    async def delete_by_id(self, user_id: int):
+        stmt = auth_models.users.delete().where(auth_models.users.c.id == user_id)
+        await self.delete_one_or_404(stmt, "User")
 
 
 class GroupService(BaseRepository):

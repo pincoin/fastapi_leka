@@ -217,31 +217,13 @@ async def get_user(
 async def create_user(
     user: schemas.UserCreate,
     superuser: dict = fastapi.Depends(authentication.get_current_user),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_repo: services.UserService = fastapi.Depends(services.UserService),
 ) -> schemas.User:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    hashed_password = hashers.hasher.get_hashed_password(user.password)
-
-    user_dict = user.dict() | {
-        "password": hashed_password,
-        "is_active": True,
-        "is_staff": False,
-        "is_superuser": False,
-        "date_joined": datetime.datetime.now(),
-        "last_login": None,
-    }
-
-    logger.debug(f"user_dict: {user_dict}")
-
-    stmt = models.users.insert().values(**user_dict)
-
     try:
-        return schemas.User(
-            **user_dict,
-            id=await Persistence(conn).insert(stmt),
-        )
+        return await user_repo.create(user)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -256,25 +238,13 @@ async def update_user(
     user: schemas.UserUpdate,
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_repo: services.UserService = fastapi.Depends(services.UserService),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    user_dict = user.dict(exclude_unset=True)
-
-    if not user_dict:
-        raise exceptions.bad_request_exception()
-
-    stmt = sa.update(models.users).where(models.users.c.id == user_id)
-
     try:
-        user_model = await Persistence(conn).update_or_failure(
-            stmt,
-            user_dict,
-            schemas.User,
-        )
-        return fastapi.encoders.jsonable_encoder(user_model)
+        return await user_repo.update_by_id(user, user_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -287,13 +257,12 @@ async def update_user(
 async def delete_user(
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_repo: services.UserService = fastapi.Depends(services.UserService),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = models.users.delete().where(models.users.c.id == user_id)
-    await Persistence(conn).delete_one_or_404(stmt, "User")
+    await user_repo.delete_by_id(user_id)
 
 
 @router.get(
