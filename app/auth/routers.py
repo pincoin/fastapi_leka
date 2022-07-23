@@ -439,15 +439,15 @@ async def create_permission_of_content_type(
     permission: schemas.PermissionCreate,
     content_type_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: services.PermissionService = fastapi.Depends(
-        services.PermissionService
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
     ),
 ) -> schemas.Permission:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
     try:
-        return await permission_service.create(
+        return await content_type_service.add_permission(
             permission,
             content_type_id,
         )
@@ -465,15 +465,15 @@ async def update_permission_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: services.PermissionService = fastapi.Depends(
-        services.PermissionService
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
     ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
     try:
-        return await permission_service.update(
+        return await content_type_service.update_permission(
             permission,
             content_type_id,
             permission_id,
@@ -491,14 +491,14 @@ async def delete_permission_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: services.PermissionService = fastapi.Depends(
-        services.PermissionService
+    content_type_service: services.ContentTypeService = fastapi.Depends(
+        services.ContentTypeService
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    await permission_service.delete_by_id(
+    await content_type_service.remove_permission(
         content_type_id,
         permission_id,
     )

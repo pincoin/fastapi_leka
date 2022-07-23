@@ -484,57 +484,6 @@ class PermissionService(BaseRepository):
 
         return await self.get_all(stmt)
 
-    async def create(
-        self,
-        permission: auth_schemas.PermissionCreate,
-        content_type_id: int,
-    ):
-        permission_dict = permission.dict()
-
-        if permission_dict["content_type_id"] != content_type_id:
-            raise exceptions.bad_request_exception()
-
-        stmt = auth_models.permissions.insert().values(**permission_dict)
-
-        return auth_schemas.Permission(**permission_dict, id=await self.insert(stmt))
-
-    async def udpate(
-        self,
-        permission: auth_schemas.PermissionUpdate,
-        content_type_id: int,
-        permission_id: int,
-    ):
-        permission_dict = permission.dict(exclude_unset=True)
-
-        if not permission_dict:
-            raise exceptions.bad_request_exception()
-
-        if permission_dict["content_type_id"] != content_type_id:
-            raise exceptions.bad_request_exception()
-
-        stmt = sa.update(auth_models.permissions).where(
-            auth_models.permissions.c.id == permission_id
-        )
-
-        permission_model = await self.update_or_failure(
-            stmt,
-            permission_dict,
-            auth_schemas.Permission,
-        )
-        return fastapi.encoders.jsonable_encoder(permission_model)
-
-    async def delete_by_id(
-        self,
-        content_type_id: int,
-        permission_id: int,
-    ):
-        stmt = auth_models.permissions.delete().where(
-            auth_models.permissions.c.id == permission_id,
-            auth_models.permissions.c.content_type_id == content_type_id,
-        )
-
-        await self.delete_one_or_404(stmt, "Permission")
-
 
 class ContentTypeService(BaseRepository):
     async def find_all(
@@ -624,3 +573,54 @@ class ContentTypeService(BaseRepository):
             auth_models.content_types.c.id == content_type_id
         )
         await self.delete_one_or_404(stmt, "Content Type")
+
+    async def add_permission(
+        self,
+        permission: auth_schemas.PermissionCreate,
+        content_type_id: int,
+    ):
+        permission_dict = permission.dict()
+
+        if permission_dict["content_type_id"] != content_type_id:
+            raise exceptions.bad_request_exception()
+
+        stmt = auth_models.permissions.insert().values(**permission_dict)
+
+        return auth_schemas.Permission(**permission_dict, id=await self.insert(stmt))
+
+    async def update_permission(
+        self,
+        permission: auth_schemas.PermissionUpdate,
+        content_type_id: int,
+        permission_id: int,
+    ):
+        permission_dict = permission.dict(exclude_unset=True)
+
+        if not permission_dict:
+            raise exceptions.bad_request_exception()
+
+        if permission_dict["content_type_id"] != content_type_id:
+            raise exceptions.bad_request_exception()
+
+        stmt = sa.update(auth_models.permissions).where(
+            auth_models.permissions.c.id == permission_id
+        )
+
+        permission_model = await self.update_or_failure(
+            stmt,
+            permission_dict,
+            auth_schemas.Permission,
+        )
+        return fastapi.encoders.jsonable_encoder(permission_model)
+
+    async def remove_permission(
+        self,
+        content_type_id: int,
+        permission_id: int,
+    ):
+        stmt = auth_models.permissions.delete().where(
+            auth_models.permissions.c.id == permission_id,
+            auth_models.permissions.c.content_type_id == content_type_id,
+        )
+
+        await self.delete_one_or_404(stmt, "Permission")
