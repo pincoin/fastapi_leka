@@ -13,7 +13,7 @@ from core.persistence import Persistence
 from core.utils import get_logger
 from jose import JWTError, jwt
 
-from auth import repositories
+from auth import services
 
 from . import hashers, models
 
@@ -95,7 +95,7 @@ class AuthenticationBackend(BaseAuthenticationBackend):
         username: str,
         password: str,
     ) -> dict | None:
-        user_row = await repositories.UserRepository().find_by_username(username)
+        user_row = await services.UserService().find_by_username(username)
 
         if not user_row:
             return False

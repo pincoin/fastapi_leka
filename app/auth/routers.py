@@ -10,7 +10,7 @@ from core.persistence import Persistence
 from core.utils import get_logger, list_params
 from jose import JWTError, jwt
 
-from auth import repositories
+from auth import services
 
 from . import forms, hashers, models, schemas
 from .backends import authentication
@@ -32,9 +32,7 @@ router = fastapi.APIRouter(
 async def get_access_token(
     response: fastapi.Response,
     form_data: forms.OAuth2RequestForm = fastapi.Depends(),
-    token_repo: repositories.TokenRepository = fastapi.Depends(
-        repositories.TokenRepository
-    ),
+    token_service: services.TokenService = fastapi.Depends(services.TokenService),
 ) -> dict:
     if form_data.grant_type == "password" and form_data.username and form_data.password:
         user_dict = await authentication.authenticate(
@@ -72,7 +70,7 @@ async def get_access_token(
         }
 
         logger.debug(token_dict)
-        await token_repo.create_refresh_token(token_dict)
+        await token_service.create(token_dict)
 
         response.headers["cache-control"] = "no-store"
 
@@ -97,7 +95,7 @@ async def get_access_token(
 
             user_id: int = payload.get("id")
 
-            if (token_row := await token_repo.find_by_user_id(user_id)) is None:
+            if (token_row := await token_service.find_by_user_id(user_id)) is None:
                 raise exceptions.invalid_token_exception()
 
             token_dict = token_row._mapping
@@ -134,9 +132,7 @@ async def get_access_token(
 async def get_refresh_token(
     response: fastapi.Response,
     user: dict = fastapi.Depends(authentication.get_current_user),
-    token_repo: repositories.TokenRepository = fastapi.Depends(
-        repositories.TokenRepository
-    ),
+    token_service: services.TokenService = fastapi.Depends(services.TokenService),
 ) -> dict:
     if user is None:
         raise exceptions.forbidden_exception()
@@ -159,7 +155,7 @@ async def get_refresh_token(
     }
 
     logger.debug(token_dict)
-    await token_repo.create_refresh_token(token_dict)
+    await token_service.create(token_dict)
 
     response.headers["cache-control"] = "no-store"
 
@@ -181,9 +177,7 @@ async def list_users(
     is_superuser: bool | None = False,
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_repo: repositories.UserRepository = fastapi.Depends(
-        repositories.UserRepository
-    ),
+    user_repo: services.UserService = fastapi.Depends(services.UserService),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
@@ -206,13 +200,12 @@ async def list_users(
 async def get_user(
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_repo: services.UserService = fastapi.Depends(services.UserService),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = sa.select(models.users).where(models.users.c.id == user_id)
-    return await Persistence(conn).get_one_or_404(stmt, schemas.User.Config().title)
+    return await user_repo.find_by_id(user_id)
 
 
 @router.post(
