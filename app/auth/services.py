@@ -68,7 +68,10 @@ class UserService(BaseRepository):
         if is_superuser:
             stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
 
-        stmt = stmt.offset(skip).limit(take)
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -118,7 +121,11 @@ class UserService(BaseRepository):
             )
             .where(auth_models.groups.c.id == group_id)
         )
-        stmt = stmt.offset(skip).limit(take)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -145,7 +152,11 @@ class UserService(BaseRepository):
         if not include_superusers:
             stmt = stmt.where(auth_models.users.c.is_superuser == False)
 
-        stmt = stmt.offset(skip).limit(take)
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
+
         return await self.get_all(stmt)
 
     async def create(
@@ -241,7 +252,13 @@ class GroupService(BaseRepository):
         skip: int | None = 0,
         take: int | None = 100,
     ) -> list[typing.Any]:
-        stmt = sa.select(auth_models.groups).offset(skip).limit(take)
+        stmt = sa.select(auth_models.groups)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
+
         return await self.get_all(stmt)
 
     async def find_by_id(
@@ -268,7 +285,11 @@ class GroupService(BaseRepository):
                 auth_models.users.c.is_active == True,
             )
         )
-        stmt = stmt.offset(skip).limit(take)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -286,7 +307,11 @@ class GroupService(BaseRepository):
             )
             .where(auth_models.permissions.c.permission_id == permission_id)
         )
-        stmt = stmt.offset(skip).limit(take)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -400,7 +425,10 @@ class PermissionService(BaseRepository):
             auth_models.content_types,
         )
 
-        stmt = stmt.offset(skip).limit(take)
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -522,7 +550,10 @@ class PermissionService(BaseRepository):
             )
         )
 
-        stmt = stmt.offset(skip).limit(take)
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -548,7 +579,11 @@ class PermissionService(BaseRepository):
             )
             .where(auth_models.group_permissions.c.group_id == group_id)
         )
-        stmt = stmt.offset(skip).limit(take)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -590,7 +625,11 @@ class PermissionService(BaseRepository):
                 auth_models.users.c.is_active == True,
             )
         )
-        stmt = stmt.offset(skip).limit(take)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -612,7 +651,11 @@ class PermissionService(BaseRepository):
             )
             .where(auth_models.content_types.c.id == content_type_id)
         )
-        stmt = stmt.offset(skip).limit(take)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -632,7 +675,10 @@ class ContentTypeService(BaseRepository):
         if model:
             stmt = stmt.where(auth_models.content_types.c.app_label == model)
 
-        stmt = stmt.offset(skip).limit(take)
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
@@ -660,7 +706,11 @@ class ContentTypeService(BaseRepository):
             )
             .where(auth_models.permissions.c.id == permission_id)
         )
-        stmt = stmt.offset(skip).limit(take)
+
+        if skip:
+            stmt = stmt.offset(skip)
+        if take:
+            stmt = stmt.limit(take)
 
         return await self.get_all(stmt)
 
