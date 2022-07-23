@@ -13,7 +13,7 @@ from . import schemas as auth_schemas
 
 logger = get_logger()
 
-logger.debug("auth repositories module imported")
+logger.debug("auth services module imported")
 
 
 class TokenService(BaseRepository):
@@ -81,6 +81,18 @@ class UserService(BaseRepository):
             auth_models.users.c.is_active == True,
         )
         return await self.get_one_or_404(stmt, auth_schemas.User.Config().title)
+
+    async def find_by_id_active_true_superuser_true(
+        self,
+        user_id: int,
+    ):
+        stmt = sa.select(auth_models.users).where(
+            auth_models.users.c.id == user_id,
+            auth_models.users.c.is_active == True,
+            auth_models.users.c.is_superuser == True,
+        )
+
+        return await self.get_one_or_none(stmt)
 
     async def find_by_username(
         self,

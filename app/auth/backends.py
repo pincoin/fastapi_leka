@@ -8,7 +8,6 @@ import fastapi
 import sqlalchemy as sa
 from core import exceptions
 from core.config import settings
-from core.dependencies import engine_connect
 from core.persistence import Persistence
 from core.utils import get_logger
 from jose import JWTError, jwt
@@ -351,15 +350,11 @@ authentication: BaseAuthenticationBackend = get_authentication_backend()
 async def get_superuser(
     self,  # This is a method to be bound.
     current_user: dict = fastapi.Depends(authentication.get_current_user),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> dict:
-    stmt = sa.select(models.users).where(
-        models.users.c.id == current_user["id"],
-        models.users.c.is_active == True,
-        models.users.c.is_superuser == True,
+    row = await user_service.find_by_id_active_true_superuser_true(
+        current_user["id"],
     )
-
-    row = await Persistence(conn).get_one_or_none(stmt)
 
     return row._mapping if row else None
 
