@@ -124,7 +124,23 @@ class UserService(BaseRepository):
 
 
 class GroupService(BaseRepository):
-    pass
+    async def find_by_user_id(
+        self,
+        user_id: int,
+        skip: int,
+        take: int,
+    ):
+        stmt = (
+            sa.select(auth_models.groups)
+            .join_from(
+                auth_models.groups,
+                auth_models.user_groups,
+            )
+            .where(auth_models.user_groups.c.user_id == user_id)
+        )
+        stmt = stmt.offset(skip).limit(take)
+
+        return await self.get_all(stmt)
 
 
 class PermissionService(BaseRepository):

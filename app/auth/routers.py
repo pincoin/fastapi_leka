@@ -12,7 +12,7 @@ from jose import JWTError, jwt
 
 from auth import services
 
-from . import forms, hashers, models, schemas
+from . import forms, models, schemas
 from .backends import authentication
 
 logger = get_logger()
@@ -59,8 +59,6 @@ async def get_access_token(
             user_dict["id"],
             expires_delta=refresh_token_expires,
         )
-
-        logger.debug(f"{user_dict} refresh_token: {refresh_token}")
 
         token_dict = {
             "user_id": user_dict["id"],
@@ -145,8 +143,6 @@ async def get_refresh_token(
         expires_delta=refresh_token_expires,
     )
 
-    logger.debug(f"{user} refresh_token: {refresh_token}")
-
     token_dict = {
         "user_id": user["id"],
         "token": refresh_token,
@@ -177,12 +173,12 @@ async def list_users(
     is_superuser: bool | None = False,
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_repo: services.UserService = fastapi.Depends(services.UserService),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await user_repo.find_all(
+    return await user_service.find_all(
         is_active,
         is_staff,
         is_superuser,
@@ -200,12 +196,12 @@ async def list_users(
 async def get_user(
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_repo: services.UserService = fastapi.Depends(services.UserService),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await user_repo.find_by_id(user_id)
+    return await user_service.find_by_id(user_id)
 
 
 @router.post(
@@ -217,13 +213,13 @@ async def get_user(
 async def create_user(
     user: schemas.UserCreate,
     superuser: dict = fastapi.Depends(authentication.get_current_user),
-    user_repo: services.UserService = fastapi.Depends(services.UserService),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> schemas.User:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
     try:
-        return await user_repo.create(user)
+        return await user_service.create(user)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -238,13 +234,13 @@ async def update_user(
     user: schemas.UserUpdate,
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_repo: services.UserService = fastapi.Depends(services.UserService),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
     try:
-        return await user_repo.update_by_id(user, user_id)
+        return await user_service.update_by_id(user, user_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -257,12 +253,12 @@ async def update_user(
 async def delete_user(
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_repo: services.UserService = fastapi.Depends(services.UserService),
+    user_service: services.UserService = fastapi.Depends(services.UserService),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    await user_repo.delete_by_id(user_id)
+    await user_service.delete_by_id(user_id)
 
 
 @router.get(
@@ -274,22 +270,16 @@ async def list_groups_of_user(
     user_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    conn: sa.ext.asyncio.engine.AsyncConnection = fastapi.Depends(engine_connect),
+    group_service: services.GroupService = fastapi.Depends(services.GroupService),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    stmt = (
-        sa.select(models.groups)
-        .join_from(
-            models.groups,
-            models.user_groups,
-        )
-        .where(models.user_groups.c.user_id == user_id)
+    return await group_service.find_by_user_id(
+        user_id,
+        params["skip"],
+        params["take"],
     )
-    stmt = stmt.offset(params["skip"]).limit(params["take"])
-
-    return await Persistence(conn).get_all(stmt)
 
 
 @router.get(
