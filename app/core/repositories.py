@@ -97,9 +97,9 @@ class BaseRepository:
         skip: int | None = None,
         take: int | None = None,
     ):
-        if skip:
+        if skip is not None:  # 0 is not passed
             statement = statement.offset(skip)
-        if take:
+        if take is not None:
             statement = statement.limit(take)
 
         return statement
