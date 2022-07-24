@@ -7,6 +7,7 @@ from core import exceptions
 from core.repositories import BaseRepository
 from core.utils import get_logger
 
+from . import clauses as auth_clauses
 from . import hashers
 from . import models as auth_models
 from . import schemas as auth_schemas
@@ -53,20 +54,15 @@ class TokenRepository(BaseRepository):
 class UserRepository(BaseRepository):
     async def find_all(
         self,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
         skip: int | None = 0,
         take: int | None = 100,
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.users)
 
-        if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         if skip:
             stmt = stmt.offset(skip)
@@ -78,20 +74,15 @@ class UserRepository(BaseRepository):
     async def find_by_id(
         self,
         user_id: int,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
         stmt = sa.select(auth_models.users).where(
             auth_models.users.c.id == user_id,
         )
 
-        if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         return await self.get_one_or_404(stmt, auth_schemas.User.Config().title)
 
@@ -110,20 +101,15 @@ class UserRepository(BaseRepository):
     async def find_by_username(
         self,
         username: str,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
         stmt = sa.select(auth_models.users).where(
             auth_models.users.c.username == username,
         )
 
-        if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         return await self.get_one_or_none(stmt)
 
@@ -209,8 +195,8 @@ class UserRepository(BaseRepository):
         self,
         user: auth_schemas.UserUpdate,
         user_id: int,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
         user_dict = user.dict(exclude_unset=True)
@@ -222,12 +208,7 @@ class UserRepository(BaseRepository):
             auth_models.users.c.id == user_id,
         )
 
-        if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         user_model = await self.update_or_failure(
             stmt,
@@ -239,8 +220,8 @@ class UserRepository(BaseRepository):
     async def delete_by_id(
         self,
         user_id: int,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
         stmt = auth_models.users.delete().where(
@@ -248,12 +229,7 @@ class UserRepository(BaseRepository):
             auth_models.users.c.is_active == True,
         )
 
-        if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         await self.delete_one_or_404(stmt, "User")
 
@@ -311,8 +287,8 @@ class GroupRepository(BaseRepository):
     async def find_by_user_id(
         self,
         user_id: int,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
         skip: int | None = 0,
         take: int | None = 100,
@@ -328,12 +304,7 @@ class GroupRepository(BaseRepository):
             )
         )
 
-        if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         if skip:
             stmt = stmt.offset(skip)
@@ -484,8 +455,8 @@ class PermissionRepository(BaseRepository):
     async def find_all_by_user_id(
         self,
         user_id: int,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
         # 1. Caching required!
@@ -517,12 +488,7 @@ class PermissionRepository(BaseRepository):
             )
         )
 
-        if is_active:
-            stmt1 = stmt1.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt1 = stmt1.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt1 = stmt1.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt1 = auth_clauses.appendUserFlags(stmt1, is_active, is_staff, is_superuser)
 
         stmt2 = (
             sa.select(
@@ -556,12 +522,7 @@ class PermissionRepository(BaseRepository):
             )
         )
 
-        if is_active:
-            stmt2 = stmt2.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt2 = stmt2.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt2 = stmt2.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt2 = auth_clauses.appendUserFlags(stmt2, is_active, is_staff, is_superuser)
 
         stmt = sa.union(stmt1, stmt2)
 
@@ -656,8 +617,8 @@ class PermissionRepository(BaseRepository):
     async def find_by_group_id_by_user_id(
         self,
         user_id: int,
-        is_superuser: bool | None,
-        is_staff: bool | None,
+        is_superuser: bool | None = None,
+        is_staff: bool | None = None,
         is_active: bool | None = True,
         skip: int | None = 0,
         take: int | None = 100,
@@ -695,12 +656,7 @@ class PermissionRepository(BaseRepository):
             )
         )
 
-        if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == is_active)
-        if is_staff:
-            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
-        if is_superuser:
-            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         if skip:
             stmt = stmt.offset(skip)
