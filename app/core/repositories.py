@@ -13,22 +13,23 @@ logger = get_logger()
 
 
 class BaseRepository:
+    def __init__(self):
+        self.statement = None
+
     async def get_one_or_none(
         self,
-        statement,
     ) -> typing.Any:
         async with engine.connect() as conn:
-            cr: CursorResult = await conn.execute(statement)
+            cr: CursorResult = await conn.execute(self.statement)
 
         return cr.first()
 
     async def get_one_or_404(
         self,
-        statement,
         item: str = "Item",
     ) -> typing.Any:
         async with engine.connect() as conn:
-            cr: CursorResult = await conn.execute(statement)
+            cr: CursorResult = await conn.execute(self.statement)
 
         if row := cr.first():
             return row
@@ -37,36 +38,36 @@ class BaseRepository:
 
     async def get_all(
         self,
-        statement,
     ) -> list[typing.Any]:
         async with engine.connect() as conn:
-            cr: CursorResult = await conn.execute(statement)
+            cr: CursorResult = await conn.execute(self.statement)
 
         return cr.fetchall()
 
     async def insert(
         self,
-        statement,
     ) -> int:
         async with engine.connect() as conn:
-            cr: CursorResult = await conn.execute(statement)
+            cr: CursorResult = await conn.execute(self.statement)
             await conn.commit()
 
         return cr.inserted_primary_key[0]
 
     async def update_or_failure(
         self,
-        statement,
         dict_in: dict,
         model_out: BaseModel,
     ) -> typing.Any:
         # 1. Fetch saved row from database
-        stmt = (
-            sa.select(statement.table)
+        update_statement = self.statement
+
+        self.statement = (
+            sa.select(self.statement.table)
             .with_for_update()  # nowait = False (default)
-            .where(statement.whereclause)
+            .where(self.statement.whereclause)
         )
-        row = await self.get_one_or_404(stmt, model_out.Config().title)
+
+        row = await self.get_one_or_404(model_out.Config().title)
 
         # 2. Create pydantic model instance from fetched row dict
         model = model_out(**row._mapping)
@@ -76,18 +77,19 @@ class BaseRepository:
 
         # 4. Execute upate query
         async with engine.connect() as conn:
-            await conn.execute(statement.values(**model_new.dict()))
+            self.statement = update_statement
+
+            await conn.execute(self.statement.values(**model_new.dict()))
             await conn.commit()
 
         return model_new
 
     async def delete_one_or_404(
         self,
-        statement,
         item: str = "Item",
     ) -> None:
         async with engine.connect() as conn:
-            cr: CursorResult = await conn.execute(statement)
+            cr: CursorResult = await conn.execute(self.statement)
             await conn.commit()
 
         if cr.rowcount > 0:
@@ -97,13 +99,12 @@ class BaseRepository:
 
     def append_skip_take(
         self,
-        statement,
         skip: int | None = None,
         take: int | None = None,
     ):
         if skip is not None:  # 0 is not passed
-            statement = statement.offset(skip)
+            self.statement = self.statement.offset(skip)
         if take is not None:
-            statement = statement.limit(take)
+            self.statement = self.statement.limit(take)
 
-        return statement
+        return self.statement

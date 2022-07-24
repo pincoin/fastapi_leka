@@ -22,7 +22,7 @@ class TokenRepository(BaseRepository):
         self,
         user_id: int,
     ):
-        stmt = (
+        self.statement = (
             sa.select(
                 auth_models.tokens,
                 auth_models.users.c.username,
@@ -37,16 +37,16 @@ class TokenRepository(BaseRepository):
             )
         )
 
-        return await self.get_one_or_none(stmt)
+        return await self.get_one_or_none()
 
     async def create(
         self,
         token_dict: dict,
     ) -> None:
-        stmt = auth_models.tokens.insert().values(**token_dict)
+        self.statement = auth_models.tokens.insert().values(**token_dict)
 
         try:
-            await self.insert(stmt)
+            await self.insert()
         except sa.exc.IntegrityError:
             raise exceptions.conflict_exception()
 
@@ -60,13 +60,12 @@ class UserRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ) -> list[typing.Any]:
-        stmt = sa.select(auth_models.users)
+        self.statement = sa.select(auth_models.users)
 
-        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_skip_take(skip, take)
 
-        stmt = self.append_skip_take(stmt, skip, take)
-
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_id(
         self,
@@ -75,25 +74,25 @@ class UserRepository(BaseRepository, UserClauseMixin):
         is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
-        stmt = sa.select(auth_models.users).where(
+        self.statement = sa.select(auth_models.users).where(
             auth_models.users.c.id == user_id,
         )
 
-        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        self.appendUserFlags(is_active, is_staff, is_superuser)
 
-        return await self.get_one_or_404(stmt, auth_schemas.User.Config().title)
+        return await self.get_one_or_404(auth_schemas.User.Config().title)
 
     async def find_by_id_active_true_superuser_true(
         self,
         user_id: int,
     ):
-        stmt = sa.select(auth_models.users).where(
+        self.statement = sa.select(auth_models.users).where(
             auth_models.users.c.id == user_id,
             auth_models.users.c.is_active == True,
             auth_models.users.c.is_superuser == True,
         )
 
-        return await self.get_one_or_none(stmt)
+        return await self.get_one_or_none()
 
     async def find_by_username(
         self,
@@ -102,13 +101,13 @@ class UserRepository(BaseRepository, UserClauseMixin):
         is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
-        stmt = sa.select(auth_models.users).where(
+        self.statement = sa.select(auth_models.users).where(
             auth_models.users.c.username == username,
         )
 
-        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        self.appendUserFlags(is_active, is_staff, is_superuser)
 
-        return await self.get_one_or_none(stmt)
+        return await self.get_one_or_none()
 
     async def find_by_group_id(
         self,
@@ -116,7 +115,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(auth_models.users)
             .join_from(
                 auth_models.users,
@@ -125,9 +124,9 @@ class UserRepository(BaseRepository, UserClauseMixin):
             .where(auth_models.groups.c.id == group_id)
         )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_permission_id(
         self,
@@ -137,7 +136,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(auth_models.users)
             .join_from(
                 auth_models.users,
@@ -147,14 +146,16 @@ class UserRepository(BaseRepository, UserClauseMixin):
         )
 
         if is_active:
-            stmt = stmt.where(auth_models.users.c.is_active == True)
+            self.statement = self.statement.where(auth_models.users.c.is_active == True)
 
         if not include_superusers:
-            stmt = stmt.where(auth_models.users.c.is_superuser == False)
+            self.statement = self.statement.where(
+                auth_models.users.c.is_superuser == False
+            )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def create(
         self,
@@ -175,11 +176,11 @@ class UserRepository(BaseRepository, UserClauseMixin):
 
         logger.debug(f"user_dict: {user_dict}")
 
-        stmt = auth_models.users.insert().values(**user_dict)
+        self.statement = auth_models.users.insert().values(**user_dict)
 
         return auth_schemas.User(
             **user_dict,
-            id=await self.insert(stmt),
+            id=await self.insert(),
         )
 
     async def update_by_id(
@@ -195,14 +196,13 @@ class UserRepository(BaseRepository, UserClauseMixin):
         if not user_dict:
             raise exceptions.bad_request_exception()
 
-        stmt = sa.update(auth_models.users).where(
+        self.statement = sa.update(auth_models.users).where(
             auth_models.users.c.id == user_id,
         )
 
-        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        self.appendUserFlags(is_active, is_staff, is_superuser)
 
         user_model = await self.update_or_failure(
-            stmt,
             user_dict,
             auth_schemas.User,
         )
@@ -215,14 +215,14 @@ class UserRepository(BaseRepository, UserClauseMixin):
         is_staff: bool | None = None,
         is_active: bool | None = True,
     ):
-        stmt = auth_models.users.delete().where(
+        self.statement = auth_models.users.delete().where(
             auth_models.users.c.id == user_id,
             auth_models.users.c.is_active == True,
         )
 
-        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        self.appendUserFlags(is_active, is_staff, is_superuser)
 
-        await self.delete_one_or_404(stmt, "User")
+        await self.delete_one_or_404("User")
 
     async def add_permission(
         self,
@@ -234,11 +234,13 @@ class UserRepository(BaseRepository, UserClauseMixin):
             "user_id": user_id,
         }
 
-        stmt = auth_models.user_permissions.insert().values(**user_permission_dict)
+        self.statement = auth_models.user_permissions.insert().values(
+            **user_permission_dict
+        )
 
         return auth_schemas.UserPermission(
             **user_permission_dict,
-            id=await self.insert(stmt),
+            id=await self.insert(),
         )
 
     async def remove_permission(
@@ -246,11 +248,11 @@ class UserRepository(BaseRepository, UserClauseMixin):
         permission_id: int,
         user_id: int,
     ):
-        stmt = auth_models.user_permissions.delete().where(
+        self.statement = auth_models.user_permissions.delete().where(
             auth_models.user_permissions.c.user_id == user_id,
             auth_models.user_permissions.c.permission_id == permission_id,
         )
-        await self.delete_one_or_404(stmt, "User Permission")
+        await self.delete_one_or_404("User Permission")
 
 
 class GroupRepository(BaseRepository, UserClauseMixin):
@@ -259,18 +261,20 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ) -> list[typing.Any]:
-        stmt = sa.select(auth_models.groups)
+        self.statement = sa.select(auth_models.groups)
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_id(
         self,
         group_id: int,
     ):
-        stmt = sa.select(auth_models.groups).where(auth_models.groups.c.id == group_id)
-        return await self.get_one_or_404(stmt, auth_schemas.Group.Config().title)
+        self.statement = sa.select(auth_models.groups).where(
+            auth_models.groups.c.id == group_id
+        )
+        return await self.get_one_or_404(auth_schemas.Group.Config().title)
 
     async def find_by_user_id(
         self,
@@ -281,7 +285,7 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(auth_models.groups)
             .join_from(
                 auth_models.groups,
@@ -292,11 +296,10 @@ class GroupRepository(BaseRepository, UserClauseMixin):
             )
         )
 
-        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_skip_take(skip, take)
 
-        stmt = self.append_skip_take(stmt, skip, take)
-
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_permission_id(
         self,
@@ -304,7 +307,7 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(auth_models.groups)
             .join_from(
                 auth_models.groups,
@@ -313,20 +316,20 @@ class GroupRepository(BaseRepository, UserClauseMixin):
             .where(auth_models.permissions.c.permission_id == permission_id)
         )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def create(
         self,
         group: auth_schemas.GroupCreate,
     ):
         group_dict = group.dict()
-        stmt = auth_models.groups.insert().values(**group_dict)
+        self.statement = auth_models.groups.insert().values(**group_dict)
 
         return auth_schemas.Group(
             **group_dict,
-            id=await self.insert(stmt),
+            id=await self.insert(),
         )
 
     async def update_by_id(
@@ -339,10 +342,11 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         if not group_dict:
             raise exceptions.bad_request_exception()
 
-        stmt = sa.update(auth_models.groups).where(auth_models.groups.c.id == group_id)
+        self.statement = sa.update(auth_models.groups).where(
+            auth_models.groups.c.id == group_id
+        )
 
         group_model = await self.update_or_failure(
-            stmt,
             group_dict,
             auth_schemas.Group,
         )
@@ -352,8 +356,10 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         self,
         group_id: int,
     ):
-        stmt = auth_models.groups.delete().where(auth_models.groups.c.id == group_id)
-        await self.delete_one_or_404(stmt, "Group")
+        self.statement = auth_models.groups.delete().where(
+            auth_models.groups.c.id == group_id
+        )
+        await self.delete_one_or_404("Group")
 
     async def add_user(
         self,
@@ -365,11 +371,11 @@ class GroupRepository(BaseRepository, UserClauseMixin):
             "group_id": group_id,
         }
 
-        stmt = auth_models.user_groups.insert().values(**user_group_dict)
+        self.statement = auth_models.user_groups.insert().values(**user_group_dict)
 
         return auth_schemas.UserGroup(
             **user_group_dict,
-            id=await self.insert(stmt),
+            id=await self.insert(),
         )
 
     async def remove_user(
@@ -377,11 +383,11 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         group_id: int,
         user_id: int,
     ):
-        stmt = auth_models.user_groups.delete().where(
+        self.statement = auth_models.user_groups.delete().where(
             auth_models.user_groups.c.user_id == user_id,
             auth_models.user_groups.c.group_id == group_id,
         )
-        await self.delete_one_or_404(stmt, "User Group")
+        await self.delete_one_or_404("User Group")
 
     async def add_permission(
         self,
@@ -393,11 +399,13 @@ class GroupRepository(BaseRepository, UserClauseMixin):
             "group_id": group_id,
         }
 
-        stmt = auth_models.group_permissions.insert().values(**group_permission_dict)
+        self.statement = auth_models.group_permissions.insert().values(
+            **group_permission_dict
+        )
 
         return auth_schemas.GroupPermission(
             **group_permission_dict,
-            id=await self.insert(stmt),
+            id=await self.insert(),
         )
 
     async def remove_permission(
@@ -405,11 +413,11 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         permission_id: int,
         group_id: int,
     ):
-        stmt = auth_models.group_permissions.delete().where(
+        self.statement = auth_models.group_permissions.delete().where(
             auth_models.group_permissions.c.group_id == group_id,
             auth_models.group_permissions.c.permission_id == permission_id,
         )
-        await self.delete_one_or_404(stmt, "Group Permission")
+        await self.delete_one_or_404("Group Permission")
 
 
 class PermissionRepository(BaseRepository, UserClauseMixin):
@@ -418,7 +426,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ) -> list[typing.Any]:
-        stmt = sa.select(
+        self.statement = sa.select(
             auth_models.permissions,
             auth_models.content_types.c.app_label,
             auth_models.content_types.c.model,
@@ -427,9 +435,9 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             auth_models.content_types,
         )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_all_by_user_id(
         self,
@@ -503,15 +511,15 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
 
         stmt2 = self.appendUserFlags(stmt2, is_active, is_staff, is_superuser)
 
-        stmt = sa.union(stmt1, stmt2)
+        self.statement = sa.union(stmt1, stmt2)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_id(
         self,
         permission_id: int,
     ):
-        stmt = (
+        self.statement = (
             sa.select(
                 auth_models.permissions,
                 auth_models.content_types.c.app_label,
@@ -524,7 +532,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             .where(auth_models.permissions.c.id == permission_id)
         )
 
-        return await self.get_one_or_404(stmt, auth_schemas.Permission.Config().title)
+        return await self.get_one_or_404(auth_schemas.Permission.Config().title)
 
     async def find_by_user_id(
         self,
@@ -532,7 +540,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(
                 auth_models.permissions,
                 auth_models.content_types.c.app_label,
@@ -556,9 +564,9 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             )
         )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_group_id(
         self,
@@ -566,7 +574,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(
                 auth_models.permissions,
                 auth_models.content_types.c.app_label,
@@ -583,9 +591,9 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             .where(auth_models.group_permissions.c.group_id == group_id)
         )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_group_id_by_user_id(
         self,
@@ -597,7 +605,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
         take: int | None = None,
     ):
         # permissions belongs to group which belongs to user
-        stmt = (
+        self.statement = (
             sa.select(
                 auth_models.permissions,
                 auth_models.content_types.c.app_label,
@@ -629,10 +637,10 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             )
         )
 
-        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_content_type_id(
         self,
@@ -640,7 +648,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(
                 auth_models.permissions,
                 auth_models.content_types.c.app_label,
@@ -653,9 +661,9 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             .where(auth_models.content_types.c.id == content_type_id)
         )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
 
 class ContentTypeRepository(BaseRepository):
@@ -666,26 +674,30 @@ class ContentTypeRepository(BaseRepository):
         skip: int | None = None,
         take: int | None = None,
     ) -> list[typing.Any]:
-        stmt = sa.select(auth_models.content_types)
+        self.statement = sa.select(auth_models.content_types)
 
         if app_label:
-            stmt = stmt.where(auth_models.content_types.c.app_label == app_label)
+            self.statement = self.statement.where(
+                auth_models.content_types.c.app_label == app_label
+            )
         if model:
-            stmt = stmt.where(auth_models.content_types.c.app_label == model)
+            self.statement = self.statement.where(
+                auth_models.content_types.c.app_label == model
+            )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def find_by_id(
         self,
         content_type_id: int,
     ):
-        stmt = sa.select(auth_models.content_types).where(
+        self.statement = sa.select(auth_models.content_types).where(
             auth_models.content_types.c.id == content_type_id
         )
 
-        return await self.get_one_or_404(stmt, auth_schemas.ContentType.Config().title)
+        return await self.get_one_or_404(auth_schemas.ContentType.Config().title)
 
     async def find_by_permission_id(
         self,
@@ -693,7 +705,7 @@ class ContentTypeRepository(BaseRepository):
         skip: int | None = None,
         take: int | None = None,
     ):
-        stmt = (
+        self.statement = (
             sa.select(auth_models.content_types)
             .join_from(
                 auth_models.content_types,
@@ -702,20 +714,20 @@ class ContentTypeRepository(BaseRepository):
             .where(auth_models.permissions.c.id == permission_id)
         )
 
-        stmt = self.append_skip_take(stmt, skip, take)
+        self.append_skip_take(skip, take)
 
-        return await self.get_all(stmt)
+        return await self.get_all()
 
     async def create(
         self,
         content_type: auth_schemas.ContentTypeCreate,
     ):
         content_type_dict = content_type.dict()
-        stmt = auth_models.content_types.insert().values(**content_type_dict)
+        self.statement = auth_models.content_types.insert().values(**content_type_dict)
 
         return auth_schemas.ContentType(
             **content_type_dict,
-            id=await self.insert(stmt),
+            id=await self.insert(),
         )
 
     async def update_by_id(
@@ -728,12 +740,11 @@ class ContentTypeRepository(BaseRepository):
         if not content_type_dict:
             raise exceptions.bad_request_exception()
 
-        stmt = sa.update(auth_models.content_types).where(
+        self.statement = sa.update(auth_models.content_types).where(
             auth_models.content_types.c.id == content_type_id
         )
 
         content_type_model = await self.update_or_failure(
-            stmt,
             content_type_dict,
             auth_schemas.ContentType,
         )
@@ -743,10 +754,10 @@ class ContentTypeRepository(BaseRepository):
         self,
         content_type_id: int,
     ):
-        stmt = auth_models.content_types.delete().where(
+        self.statement = auth_models.content_types.delete().where(
             auth_models.content_types.c.id == content_type_id
         )
-        await self.delete_one_or_404(stmt, "Content Type")
+        await self.delete_one_or_404("Content Type")
 
     async def add_permission(
         self,
@@ -758,9 +769,9 @@ class ContentTypeRepository(BaseRepository):
         if permission_dict["content_type_id"] != content_type_id:
             raise exceptions.bad_request_exception()
 
-        stmt = auth_models.permissions.insert().values(**permission_dict)
+        self.statement = auth_models.permissions.insert().values(**permission_dict)
 
-        return auth_schemas.Permission(**permission_dict, id=await self.insert(stmt))
+        return auth_schemas.Permission(**permission_dict, id=await self.insert())
 
     async def update_permission(
         self,
@@ -776,12 +787,11 @@ class ContentTypeRepository(BaseRepository):
         if permission_dict["content_type_id"] != content_type_id:
             raise exceptions.bad_request_exception()
 
-        stmt = sa.update(auth_models.permissions).where(
+        self.statement = sa.update(auth_models.permissions).where(
             auth_models.permissions.c.id == permission_id
         )
 
         permission_model = await self.update_or_failure(
-            stmt,
             permission_dict,
             auth_schemas.Permission,
         )
@@ -792,9 +802,9 @@ class ContentTypeRepository(BaseRepository):
         content_type_id: int,
         permission_id: int,
     ):
-        stmt = auth_models.permissions.delete().where(
+        self.statement = auth_models.permissions.delete().where(
             auth_models.permissions.c.id == permission_id,
             auth_models.permissions.c.content_type_id == content_type_id,
         )
 
-        await self.delete_one_or_404(stmt, "Permission")
+        await self.delete_one_or_404("Permission")
