@@ -62,7 +62,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
     ) -> list[typing.Any]:
         self.statement = sa.select(auth_models.users)
 
-        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_user_flags(is_active, is_staff, is_superuser)
         self.append_skip_take(skip, take)
 
         return await self.get_all()
@@ -78,7 +78,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
             auth_models.users.c.id == user_id,
         )
 
-        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_user_flags(is_active, is_staff, is_superuser)
 
         return await self.get_one_or_404(auth_schemas.User.Config().title)
 
@@ -105,7 +105,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
             auth_models.users.c.username == username,
         )
 
-        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_user_flags(is_active, is_staff, is_superuser)
 
         return await self.get_one_or_none()
 
@@ -200,7 +200,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
             auth_models.users.c.id == user_id,
         )
 
-        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_user_flags(is_active, is_staff, is_superuser)
 
         user_model = await self.update_or_failure(
             user_dict,
@@ -220,7 +220,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
             auth_models.users.c.is_active == True,
         )
 
-        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_user_flags(is_active, is_staff, is_superuser)
 
         await self.delete_one_or_404("User")
 
@@ -296,7 +296,7 @@ class GroupRepository(BaseRepository, UserClauseMixin):
             )
         )
 
-        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_user_flags(is_active, is_staff, is_superuser)
         self.append_skip_take(skip, take)
 
         return await self.get_all()
@@ -475,7 +475,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             )
         )
 
-        stmt1 = self.appendUserFlags(stmt1, is_active, is_staff, is_superuser)
+        stmt1 = self.append_user_flags(stmt1, is_active, is_staff, is_superuser)
 
         stmt2 = (
             sa.select(
@@ -509,7 +509,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             )
         )
 
-        stmt2 = self.appendUserFlags(stmt2, is_active, is_staff, is_superuser)
+        stmt2 = self.append_user_flags(stmt2, is_active, is_staff, is_superuser)
 
         self.statement = sa.union(stmt1, stmt2)
 
@@ -637,7 +637,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
             )
         )
 
-        self.appendUserFlags(is_active, is_staff, is_superuser)
+        self.append_user_flags(is_active, is_staff, is_superuser)
         self.append_skip_take(skip, take)
 
         return await self.get_all()
