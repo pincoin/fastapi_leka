@@ -57,17 +57,14 @@ class UserRepository(BaseRepository):
         is_superuser: bool | None = None,
         is_staff: bool | None = None,
         is_active: bool | None = True,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.users)
 
         stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -116,8 +113,8 @@ class UserRepository(BaseRepository):
     async def find_by_group_id(
         self,
         group_id: int,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(auth_models.users)
@@ -128,10 +125,7 @@ class UserRepository(BaseRepository):
             .where(auth_models.groups.c.id == group_id)
         )
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -140,8 +134,8 @@ class UserRepository(BaseRepository):
         permission_id: int,
         is_active=True,
         include_superusers=True,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(auth_models.users)
@@ -158,10 +152,7 @@ class UserRepository(BaseRepository):
         if not include_superusers:
             stmt = stmt.where(auth_models.users.c.is_superuser == False)
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -265,15 +256,12 @@ class UserRepository(BaseRepository):
 class GroupRepository(BaseRepository):
     async def find_all(
         self,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.groups)
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -290,8 +278,8 @@ class GroupRepository(BaseRepository):
         is_superuser: bool | None = None,
         is_staff: bool | None = None,
         is_active: bool | None = True,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(auth_models.groups)
@@ -306,18 +294,15 @@ class GroupRepository(BaseRepository):
 
         stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
     async def find_by_permission_id(
         self,
         permission_id: int,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(auth_models.groups)
@@ -328,10 +313,7 @@ class GroupRepository(BaseRepository):
             .where(auth_models.permissions.c.permission_id == permission_id)
         )
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -433,8 +415,8 @@ class GroupRepository(BaseRepository):
 class PermissionRepository(BaseRepository):
     async def find_all(
         self,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ) -> list[typing.Any]:
         stmt = sa.select(
             auth_models.permissions,
@@ -445,10 +427,7 @@ class PermissionRepository(BaseRepository):
             auth_models.content_types,
         )
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -550,8 +529,8 @@ class PermissionRepository(BaseRepository):
     async def find_by_user_id(
         self,
         user_id: int,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(
@@ -577,18 +556,15 @@ class PermissionRepository(BaseRepository):
             )
         )
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
     async def find_by_group_id(
         self,
         group_id: int,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(
@@ -607,10 +583,7 @@ class PermissionRepository(BaseRepository):
             .where(auth_models.group_permissions.c.group_id == group_id)
         )
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -620,8 +593,8 @@ class PermissionRepository(BaseRepository):
         is_superuser: bool | None = None,
         is_staff: bool | None = None,
         is_active: bool | None = True,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         # permissions belongs to group which belongs to user
         stmt = (
@@ -657,19 +630,15 @@ class PermissionRepository(BaseRepository):
         )
 
         stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
-
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
     async def find_by_content_type_id(
         self,
         content_type_id: int,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(
@@ -684,10 +653,7 @@ class PermissionRepository(BaseRepository):
             .where(auth_models.content_types.c.id == content_type_id)
         )
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -697,8 +663,8 @@ class ContentTypeRepository(BaseRepository):
         self,
         app_label: str,
         model: str,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.content_types)
 
@@ -707,10 +673,7 @@ class ContentTypeRepository(BaseRepository):
         if model:
             stmt = stmt.where(auth_models.content_types.c.app_label == model)
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 
@@ -727,8 +690,8 @@ class ContentTypeRepository(BaseRepository):
     async def find_by_permission_id(
         self,
         permission_id: int,
-        skip: int | None = 0,
-        take: int | None = 100,
+        skip: int | None = None,
+        take: int | None = None,
     ):
         stmt = (
             sa.select(auth_models.content_types)
@@ -739,10 +702,7 @@ class ContentTypeRepository(BaseRepository):
             .where(auth_models.permissions.c.id == permission_id)
         )
 
-        if skip:
-            stmt = stmt.offset(skip)
-        if take:
-            stmt = stmt.limit(take)
+        stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
 

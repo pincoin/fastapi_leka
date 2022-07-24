@@ -90,3 +90,16 @@ class BaseRepository:
             return None
 
         raise exceptions.item_not_found_exception(item)
+
+    def append_skip_take(
+        self,
+        statement,
+        skip: int | None = None,
+        take: int | None = None,
+    ):
+        if skip:
+            statement = statement.offset(skip)
+        if take:
+            statement = statement.limit(take)
+
+        return statement
