@@ -54,9 +54,9 @@ class TokenRepository(BaseRepository):
 class UserRepository(BaseRepository):
     async def find_all(
         self,
-        is_superuser: bool | None = None,
-        is_staff: bool | None = None,
         is_active: bool | None = True,
+        is_staff: bool | None = None,
+        is_superuser: bool | None = None,
         skip: int | None = None,
         take: int | None = None,
     ) -> list[typing.Any]:
