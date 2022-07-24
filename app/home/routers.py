@@ -11,4 +11,4 @@ router = APIRouter(
 
 @router.get("/")
 async def home() -> dict:
-    return {"message": f"Hi! {settings.app_name}"}
+    return {"message": f"Hi! {settings.title}"}

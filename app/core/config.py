@@ -5,12 +5,16 @@ from pydantic import BaseSettings, Field, PostgresDsn
 
 
 class Settings(BaseSettings):
-    app_name: str = "fastapi-starter"
+    title: str = "fastapi-starter"
 
     uvicorn_reload: bool = False
     debug: bool = True
     host: str = "127.0.0.1"
     port: int = 8000
+    origins: list = [
+        "http://localhost:8080",
+        "http://127.0.0.1:8000",
+    ]
 
     disable_swagger_ui: bool = False
     disable_openapi_json: bool = False

@@ -2,6 +2,7 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 import auth
 import home
@@ -13,17 +14,35 @@ from core.utils import get_logger
 logger = get_logger()
 
 
-app_params = {}
+def get_application():
+    app_params = {}
 
-if settings.disable_swagger_ui:
-    app_params["docs_url"] = None
+    if settings.disable_swagger_ui:
+        app_params["docs_url"] = None
 
-if settings.disable_openapi_json:
-    app_params["openapi_url"] = None
+    if settings.disable_openapi_json:
+        app_params["openapi_url"] = None
 
-logger.debug(app_params)
+    logger.debug(app_params)
 
-app = FastAPI(**app_params)
+    _app = FastAPI(**app_params)
+
+    _app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.origins],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    _app.include_router(auth.routers.router)
+    _app.include_router(shop.routers.router)
+    _app.include_router(home.routers.router)
+
+    return _app
+
+
+app = get_application()
 
 
 @app.on_event("startup")
@@ -38,11 +57,6 @@ async def shutdown():
     # Engine disposal closes all connections of the connection pool
     logger.debug(f"sqlalchemy.async.engine disposed - [{os.getpid()}]")
     await engine.dispose()
-
-
-app.include_router(auth.routers.router)
-app.include_router(shop.routers.router)
-app.include_router(home.routers.router)
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ Python 3.10 and above
 `app/local.env`
 
 ```py
-app_name="FastAPI from Django"
+title="FastAPI from Django"
 debug=True
 uvicorn_reload=True
 disable_swagger_ui=True
