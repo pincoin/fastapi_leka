@@ -21,9 +21,8 @@ def get_application():
         app_params["docs_url"] = None
 
     if settings.disable_openapi_json:
+        # if disabled, swagger_ui is also turned off.
         app_params["openapi_url"] = None
-
-    logger.debug(app_params)
 
     _app = FastAPI(**app_params)
 
