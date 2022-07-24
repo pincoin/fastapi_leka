@@ -182,11 +182,6 @@ async def list_users(
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    logger.debug(is_active)
-    logger.debug(is_staff)
-    logger.debug(is_superuser)
-    logger.debug(params)
-
     return await user_service.find_all(
         is_active,
         is_staff,
