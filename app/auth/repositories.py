@@ -16,7 +16,7 @@ logger = get_logger()
 logger.debug("auth services module imported")
 
 
-class TokenService(BaseRepository):
+class TokenRepository(BaseRepository):
     async def find_by_user_id(
         self,
         user_id: int,
@@ -50,12 +50,12 @@ class TokenService(BaseRepository):
             raise exceptions.conflict_exception()
 
 
-class UserService(BaseRepository):
+class UserRepository(BaseRepository):
     async def find_all(
         self,
-        is_active: bool,
-        is_staff: bool,
-        is_superuser: bool,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
         skip: int | None = 0,
         take: int | None = 100,
     ) -> list[typing.Any]:
@@ -78,11 +78,21 @@ class UserService(BaseRepository):
     async def find_by_id(
         self,
         user_id: int,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
     ):
         stmt = sa.select(auth_models.users).where(
             auth_models.users.c.id == user_id,
-            auth_models.users.c.is_active == True,
         )
+
+        if is_active:
+            stmt = stmt.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+
         return await self.get_one_or_404(stmt, auth_schemas.User.Config().title)
 
     async def find_by_id_active_true_superuser_true(
@@ -100,11 +110,21 @@ class UserService(BaseRepository):
     async def find_by_username(
         self,
         username: str,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
     ):
         stmt = sa.select(auth_models.users).where(
             auth_models.users.c.username == username,
-            auth_models.users.c.is_active == True,
         )
+
+        if is_active:
+            stmt = stmt.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+
         return await self.get_one_or_none(stmt)
 
     async def find_by_group_id(
@@ -189,6 +209,9 @@ class UserService(BaseRepository):
         self,
         user: auth_schemas.UserUpdate,
         user_id: int,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
     ):
         user_dict = user.dict(exclude_unset=True)
 
@@ -197,8 +220,14 @@ class UserService(BaseRepository):
 
         stmt = sa.update(auth_models.users).where(
             auth_models.users.c.id == user_id,
-            auth_models.users.c.is_active == True,
         )
+
+        if is_active:
+            stmt = stmt.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
 
         user_model = await self.update_or_failure(
             stmt,
@@ -210,11 +239,22 @@ class UserService(BaseRepository):
     async def delete_by_id(
         self,
         user_id: int,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
     ):
         stmt = auth_models.users.delete().where(
             auth_models.users.c.id == user_id,
             auth_models.users.c.is_active == True,
         )
+
+        if is_active:
+            stmt = stmt.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+
         await self.delete_one_or_404(stmt, "User")
 
     async def add_permission(
@@ -246,7 +286,7 @@ class UserService(BaseRepository):
         await self.delete_one_or_404(stmt, "User Permission")
 
 
-class GroupService(BaseRepository):
+class GroupRepository(BaseRepository):
     async def find_all(
         self,
         skip: int | None = 0,
@@ -271,6 +311,9 @@ class GroupService(BaseRepository):
     async def find_by_user_id(
         self,
         user_id: int,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
         skip: int | None = 0,
         take: int | None = 100,
     ):
@@ -282,9 +325,15 @@ class GroupService(BaseRepository):
             )
             .where(
                 auth_models.user_groups.c.user_id == user_id,
-                auth_models.users.c.is_active == True,
             )
         )
+
+        if is_active:
+            stmt = stmt.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
 
         if skip:
             stmt = stmt.offset(skip)
@@ -410,7 +459,7 @@ class GroupService(BaseRepository):
         await self.delete_one_or_404(stmt, "Group Permission")
 
 
-class PermissionService(BaseRepository):
+class PermissionRepository(BaseRepository):
     async def find_all(
         self,
         skip: int | None = 0,
@@ -435,6 +484,9 @@ class PermissionService(BaseRepository):
     async def find_all_by_user_id(
         self,
         user_id: int,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
     ):
         # 1. Caching required!
         # 2. Rules assumption required for tuning
@@ -464,6 +516,13 @@ class PermissionService(BaseRepository):
                 auth_models.users.c.is_active == True,
             )
         )
+
+        if is_active:
+            stmt1 = stmt1.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt1 = stmt1.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt1 = stmt1.where(auth_models.users.c.is_superuser == is_superuser)
 
         stmt2 = (
             sa.select(
@@ -496,6 +555,13 @@ class PermissionService(BaseRepository):
                 auth_models.users.c.is_active == True,
             )
         )
+
+        if is_active:
+            stmt2 = stmt2.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt2 = stmt2.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt2 = stmt2.where(auth_models.users.c.is_superuser == is_superuser)
 
         stmt = sa.union(stmt1, stmt2)
 
@@ -590,6 +656,9 @@ class PermissionService(BaseRepository):
     async def find_by_group_id_by_user_id(
         self,
         user_id: int,
+        is_superuser: bool | None,
+        is_staff: bool | None,
+        is_active: bool | None = True,
         skip: int | None = 0,
         take: int | None = 100,
     ):
@@ -626,6 +695,13 @@ class PermissionService(BaseRepository):
             )
         )
 
+        if is_active:
+            stmt = stmt.where(auth_models.users.c.is_active == is_active)
+        if is_staff:
+            stmt = stmt.where(auth_models.users.c.is_staff == is_staff)
+        if is_superuser:
+            stmt = stmt.where(auth_models.users.c.is_superuser == is_superuser)
+
         if skip:
             stmt = stmt.offset(skip)
         if take:
@@ -660,7 +736,7 @@ class PermissionService(BaseRepository):
         return await self.get_all(stmt)
 
 
-class ContentTypeService(BaseRepository):
+class ContentTypeRepository(BaseRepository):
     async def find_all(
         self,
         app_label: str,

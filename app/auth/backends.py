@@ -11,9 +11,7 @@ from core.config import settings
 from core.utils import get_logger
 from jose import JWTError, jwt
 
-from auth import services
-
-from . import hashers
+from . import hashers, repositories
 
 logger = get_logger()
 
@@ -93,7 +91,7 @@ class AuthenticationBackend(BaseAuthenticationBackend):
         username: str,
         password: str,
     ) -> dict | None:
-        user_row = await services.UserService().find_by_username(username)
+        user_row = await repositories.UserRepository().find_by_username(username)
 
         if not user_row:
             return False
@@ -154,20 +152,22 @@ class AuthenticationBackend(BaseAuthenticationBackend):
         user_id: int,
     ) -> list[typing.Any]:
         # permissions belongs to user
-        return await services.PermissionService().find_by_user_id(user_id)
+        return await repositories.PermissionRepository().find_by_user_id(user_id)
 
     async def get_group_permissions(
         self,
         user_id: int,
     ) -> list[typing.Any]:
         # permissions belongs to group which belongs to user
-        return await services.PermissionService().find_by_group_id_by_user_id(user_id)
+        return await repositories.PermissionRepository().find_by_group_id_by_user_id(
+            user_id
+        )
 
     async def get_all_permissions(
         self,
         user_id: int,
     ) -> list[typing.Any]:
-        return await services.PermissionService().find_all_by_user_id(user_id)
+        return await repositories.PermissionRepository().find_all_by_user_id(user_id)
 
     async def has_perm(
         self,
@@ -194,7 +194,7 @@ class AuthenticationBackend(BaseAuthenticationBackend):
         is_active=True,
         include_superusers=True,
     ) -> list[typing.Any]:
-        return await services.UserService().find_by_permission_id(
+        return await repositories.UserRepository().find_by_permission_id(
             permission_id,
             is_active,
             include_superusers,
@@ -214,7 +214,9 @@ authentication: BaseAuthenticationBackend = get_authentication_backend()
 async def get_superuser(
     self,  # This is a method to be bound.
     current_user: dict = fastapi.Depends(authentication.get_current_user),
-    user_service: services.UserService = fastapi.Depends(services.UserService),
+    user_service: repositories.UserRepository = fastapi.Depends(
+        repositories.UserRepository
+    ),
 ) -> dict:
     row = await user_service.find_by_id_active_true_superuser_true(
         current_user["id"],
