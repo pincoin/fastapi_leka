@@ -61,7 +61,11 @@ class BaseRepository:
         model_out: BaseModel,
     ) -> typing.Any:
         # 1. Fetch saved row from database
-        stmt = sa.select(statement.table).where(statement.whereclause)
+        stmt = (
+            sa.select(statement.table)
+            .with_for_update()  # nowait = False (default)
+            .where(statement.whereclause)
+        )
         row = await self.get_one_or_404(stmt, model_out.Config().title)
 
         # 2. Create pydantic model instance from fetched row dict

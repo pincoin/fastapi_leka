@@ -7,10 +7,10 @@ from core import exceptions
 from core.repositories import BaseRepository
 from core.utils import get_logger
 
-from . import clauses as auth_clauses
 from . import hashers
 from . import models as auth_models
 from . import schemas as auth_schemas
+from .repository_mixins import UserClauseMixin
 
 logger = get_logger()
 
@@ -51,7 +51,7 @@ class TokenRepository(BaseRepository):
             raise exceptions.conflict_exception()
 
 
-class UserRepository(BaseRepository):
+class UserRepository(BaseRepository, UserClauseMixin):
     async def find_all(
         self,
         is_active: bool | None = True,
@@ -62,7 +62,7 @@ class UserRepository(BaseRepository):
     ) -> list[typing.Any]:
         stmt = sa.select(auth_models.users)
 
-        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         stmt = self.append_skip_take(stmt, skip, take)
 
@@ -79,7 +79,7 @@ class UserRepository(BaseRepository):
             auth_models.users.c.id == user_id,
         )
 
-        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         return await self.get_one_or_404(stmt, auth_schemas.User.Config().title)
 
@@ -106,7 +106,7 @@ class UserRepository(BaseRepository):
             auth_models.users.c.username == username,
         )
 
-        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         return await self.get_one_or_none(stmt)
 
@@ -199,7 +199,7 @@ class UserRepository(BaseRepository):
             auth_models.users.c.id == user_id,
         )
 
-        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         user_model = await self.update_or_failure(
             stmt,
@@ -220,7 +220,7 @@ class UserRepository(BaseRepository):
             auth_models.users.c.is_active == True,
         )
 
-        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         await self.delete_one_or_404(stmt, "User")
 
@@ -253,7 +253,7 @@ class UserRepository(BaseRepository):
         await self.delete_one_or_404(stmt, "User Permission")
 
 
-class GroupRepository(BaseRepository):
+class GroupRepository(BaseRepository, UserClauseMixin):
     async def find_all(
         self,
         skip: int | None = None,
@@ -292,7 +292,7 @@ class GroupRepository(BaseRepository):
             )
         )
 
-        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
 
         stmt = self.append_skip_take(stmt, skip, take)
 
@@ -412,7 +412,7 @@ class GroupRepository(BaseRepository):
         await self.delete_one_or_404(stmt, "Group Permission")
 
 
-class PermissionRepository(BaseRepository):
+class PermissionRepository(BaseRepository, UserClauseMixin):
     async def find_all(
         self,
         skip: int | None = None,
@@ -467,7 +467,7 @@ class PermissionRepository(BaseRepository):
             )
         )
 
-        stmt1 = auth_clauses.appendUserFlags(stmt1, is_active, is_staff, is_superuser)
+        stmt1 = self.appendUserFlags(stmt1, is_active, is_staff, is_superuser)
 
         stmt2 = (
             sa.select(
@@ -501,7 +501,7 @@ class PermissionRepository(BaseRepository):
             )
         )
 
-        stmt2 = auth_clauses.appendUserFlags(stmt2, is_active, is_staff, is_superuser)
+        stmt2 = self.appendUserFlags(stmt2, is_active, is_staff, is_superuser)
 
         stmt = sa.union(stmt1, stmt2)
 
@@ -629,7 +629,7 @@ class PermissionRepository(BaseRepository):
             )
         )
 
-        stmt = auth_clauses.appendUserFlags(stmt, is_active, is_staff, is_superuser)
+        stmt = self.appendUserFlags(stmt, is_active, is_staff, is_superuser)
         stmt = self.append_skip_take(stmt, skip, take)
 
         return await self.get_all(stmt)
