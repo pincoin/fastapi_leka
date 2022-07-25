@@ -98,6 +98,9 @@ async def get_access_token(
             if token_dict is None:
                 raise exceptions.invalid_token_exception()
 
+            if token_dict["token"] != form_data.refresh_token:
+                raise exceptions.invalid_token_exception()
+
             access_token_expires = datetime.timedelta(
                 minutes=settings.jwt_expiration_delta,
             )
