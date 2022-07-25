@@ -173,14 +173,14 @@ async def list_users(
     is_superuser: bool | None = False,
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await user_service.find_all(
+    return await user_repo.find_all(
         is_active,
         is_staff,
         is_superuser,
@@ -198,14 +198,14 @@ async def list_users(
 async def get_user(
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await user_service.find_by_id(user_id)
+    return await user_repo.find_by_id(user_id)
 
 
 @router.post(
@@ -217,7 +217,7 @@ async def get_user(
 async def create_user(
     user: schemas.UserCreate,
     superuser: dict = fastapi.Depends(authentication.get_current_user),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> schemas.User:
@@ -225,7 +225,7 @@ async def create_user(
         raise exceptions.forbidden_exception()
 
     try:
-        return await user_service.create(user)
+        return await user_repo.create(user)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -240,7 +240,7 @@ async def update_user(
     user: schemas.UserUpdate,
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> typing.Any:
@@ -248,7 +248,7 @@ async def update_user(
         raise exceptions.forbidden_exception()
 
     try:
-        return await user_service.update_by_id(user, user_id)
+        return await user_repo.update_by_id(user, user_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -261,14 +261,14 @@ async def update_user(
 async def delete_user(
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    await user_service.delete_by_id(user_id)
+    await user_repo.delete_by_id(user_id)
 
 
 @router.get(
@@ -280,14 +280,14 @@ async def list_groups_of_user(
     user_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await group_service.find_by_user_id(
+    return await group_repo.find_by_user_id(
         user_id,
         params["skip"],
         params["take"],
@@ -303,14 +303,14 @@ async def list_permissions_of_user(
     user_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: repositories.PermissionRepository = fastapi.Depends(
+    permission_repo: repositories.PermissionRepository = fastapi.Depends(
         repositories.PermissionRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await permission_service.find_by_user_id(
+    return await permission_repo.find_by_user_id(
         user_id,
         params["skip"],
         params["take"],
@@ -327,14 +327,14 @@ async def list_content_types(
     app_label: str | None = fastapi.Query(default=None, max_length=100),
     model: str | None = fastapi.Query(default=None, max_length=100),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await content_type_service.find_all(
+    return await content_type_repo.find_all(
         app_label,
         model,
         params["skip"],
@@ -350,14 +350,14 @@ async def list_content_types(
 async def get_content_type(
     content_type_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await content_type_service.find_by_id(content_type_id)
+    return await content_type_repo.find_by_id(content_type_id)
 
 
 @router.post(
@@ -368,7 +368,7 @@ async def get_content_type(
 async def create_content_type(
     content_type: schemas.ContentTypeCreate,
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> schemas.ContentType:
@@ -376,7 +376,7 @@ async def create_content_type(
         raise exceptions.forbidden_exception()
 
     try:
-        return await content_type_service.create(content_type)
+        return await content_type_repo.create(content_type)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -390,7 +390,7 @@ async def update_content_type(
     content_type: schemas.ContentTypeUpdate,
     content_type_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> typing.Any:
@@ -398,7 +398,7 @@ async def update_content_type(
         raise exceptions.forbidden_exception()
 
     try:
-        return await content_type_service.update_by_id(content_type, content_type_id)
+        return await content_type_repo.update_by_id(content_type, content_type_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -411,14 +411,14 @@ async def update_content_type(
 async def delete_content_type(
     content_type_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    await content_type_service.delete_by_id(content_type_id)
+    await content_type_repo.delete_by_id(content_type_id)
 
 
 @router.get(
@@ -430,14 +430,14 @@ async def list_permissions_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: repositories.PermissionRepository = fastapi.Depends(
+    permission_repo: repositories.PermissionRepository = fastapi.Depends(
         repositories.PermissionRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await permission_service.find_by_content_type_id(
+    return await permission_repo.find_by_content_type_id(
         content_type_id,
         params["skip"],
         params["take"],
@@ -453,7 +453,7 @@ async def create_permission_of_content_type(
     permission: schemas.PermissionCreate,
     content_type_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> schemas.Permission:
@@ -461,7 +461,7 @@ async def create_permission_of_content_type(
         raise exceptions.forbidden_exception()
 
     try:
-        return await content_type_service.add_permission(
+        return await content_type_repo.add_permission(
             permission,
             content_type_id,
         )
@@ -479,7 +479,7 @@ async def update_permission_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> typing.Any:
@@ -487,7 +487,7 @@ async def update_permission_of_content_type(
         raise exceptions.forbidden_exception()
 
     try:
-        return await content_type_service.update_permission(
+        return await content_type_repo.update_permission(
             permission,
             content_type_id,
             permission_id,
@@ -505,14 +505,14 @@ async def delete_permission_of_content_type(
     content_type_id: int = fastapi.Query(gt=0),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    await content_type_service.remove_permission(
+    await content_type_repo.remove_permission(
         content_type_id,
         permission_id,
     )
@@ -526,14 +526,14 @@ async def delete_permission_of_content_type(
 async def list_groups(
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await group_service.find_all(
+    return await group_repo.find_all(
         params["skip"],
         params["take"],
     )
@@ -547,14 +547,14 @@ async def list_groups(
 async def get_group(
     group_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await group_service.find_by_id(group_id)
+    return await group_repo.find_by_id(group_id)
 
 
 @router.post(
@@ -565,7 +565,7 @@ async def get_group(
 async def create_group(
     group: schemas.GroupCreate,
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> schemas.Group:
@@ -573,7 +573,7 @@ async def create_group(
         raise exceptions.forbidden_exception()
 
     try:
-        return await group_service.create(group)
+        return await group_repo.create(group)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -587,7 +587,7 @@ async def update_group(
     group: schemas.GroupUpdate,
     group_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> typing.Any:
@@ -595,7 +595,7 @@ async def update_group(
         raise exceptions.forbidden_exception()
 
     try:
-        return await group_service.update_by_id(group, group_id)
+        return await group_repo.update_by_id(group, group_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -608,14 +608,14 @@ async def update_group(
 async def delete_group(
     group_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    group_service.delete_by_id(group_id)
+    group_repo.delete_by_id(group_id)
 
 
 @router.get(
@@ -628,14 +628,14 @@ async def list_users_of_group(
     group_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await group_service.find_by_group_id(
+    return await group_repo.find_by_group_id(
         group_id,
         params["skip"],
         params["take"],
@@ -651,14 +651,14 @@ async def list_permissions_of_group(
     group_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: repositories.PermissionRepository = fastapi.Depends(
+    permission_repo: repositories.PermissionRepository = fastapi.Depends(
         repositories.PermissionRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await permission_service.find_by_group_id(
+    return await permission_repo.find_by_group_id(
         group_id,
         params["skip"],
         params["take"],
@@ -674,7 +674,7 @@ async def create_user_of_group(
     group_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> schemas.UserGroup:
@@ -682,7 +682,7 @@ async def create_user_of_group(
         raise exceptions.forbidden_exception()
 
     try:
-        return await group_service.add_user(group_id, user_id)
+        return await group_repo.add_user(group_id, user_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -696,14 +696,14 @@ async def delete_user_of_group(
     group_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    group_service.remove_user(group_id, user_id)
+    group_repo.remove_user(group_id, user_id)
 
 
 @router.get(
@@ -714,14 +714,14 @@ async def delete_user_of_group(
 async def list_permissions(
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: repositories.PermissionRepository = fastapi.Depends(
+    permission_repo: repositories.PermissionRepository = fastapi.Depends(
         repositories.PermissionRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await permission_service.find_all(
+    return await permission_repo.find_all(
         params["skip"],
         params["take"],
     )
@@ -735,14 +735,14 @@ async def list_permissions(
 async def get_permission(
     permission_id: int = fastapi.Query(default=0, gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    permission_service: repositories.PermissionRepository = fastapi.Depends(
+    permission_repo: repositories.PermissionRepository = fastapi.Depends(
         repositories.PermissionRepository
     ),
 ) -> typing.Any:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await permission_service.find_by_id(permission_id)
+    return await permission_repo.find_by_id(permission_id)
 
 
 @router.get(
@@ -755,14 +755,14 @@ async def list_users_of_permission(
     params: dict = fastapi.Depends(list_params),
     permission_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await user_service.find_by_permission_id(
+    return await user_repo.find_by_permission_id(
         permission_id,
         params["skip"],
         params["take"],
@@ -778,14 +778,14 @@ async def list_groups_of_permission(
     permission_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await group_service.find_by_permission_id(
+    return await group_repo.find_by_permission_id(
         permission_id,
         params["skip"],
         params["take"],
@@ -801,7 +801,7 @@ async def create_permission_of_user(
     permission_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> schemas.UserPermission:
@@ -809,7 +809,7 @@ async def create_permission_of_user(
         raise exceptions.forbidden_exception()
 
     try:
-        return await user_service.add_permission(permission_id, user_id)
+        return await user_repo.add_permission(permission_id, user_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -823,14 +823,14 @@ async def delete_permission_of_user(
     permission_id: int = fastapi.Query(gt=0),
     user_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    user_service: repositories.UserRepository = fastapi.Depends(
+    user_repo: repositories.UserRepository = fastapi.Depends(
         repositories.UserRepository
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    await user_service.remove_permission(permission_id, user_id)
+    await user_repo.remove_permission(permission_id, user_id)
 
 
 @router.post(
@@ -842,7 +842,7 @@ async def create_permission_of_group(
     permission_id: int = fastapi.Query(gt=0),
     group_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> schemas.GroupPermission:
@@ -850,7 +850,7 @@ async def create_permission_of_group(
         raise exceptions.forbidden_exception()
 
     try:
-        return await group_service.add_permission(permission_id, group_id)
+        return await group_repo.add_permission(permission_id, group_id)
     except sa.exc.IntegrityError:
         raise exceptions.conflict_exception()
 
@@ -864,14 +864,14 @@ async def delete_permission_of_group(
     permission_id: int = fastapi.Query(gt=0),
     group_id: int = fastapi.Query(gt=0),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    group_service: repositories.GroupRepository = fastapi.Depends(
+    group_repo: repositories.GroupRepository = fastapi.Depends(
         repositories.GroupRepository
     ),
 ) -> None:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    await group_service.remove_permission(permission_id, group_id)
+    await group_repo.remove_permission(permission_id, group_id)
 
 
 @router.get(
@@ -883,14 +883,14 @@ async def list_content_types_of_permission(
     permission_id: int = fastapi.Query(gt=0),
     params: dict = fastapi.Depends(list_params),
     superuser: dict = fastapi.Depends(authentication.get_superuser),
-    content_type_service: repositories.ContentTypeRepository = fastapi.Depends(
+    content_type_repo: repositories.ContentTypeRepository = fastapi.Depends(
         repositories.ContentTypeRepository
     ),
 ) -> list[typing.Any]:
     if superuser is None:
         raise exceptions.forbidden_exception()
 
-    return await content_type_service.find_by_permission_id(
+    return await content_type_repo.find_by_permission_id(
         permission_id,
         params["skip"],
         params["take"],
