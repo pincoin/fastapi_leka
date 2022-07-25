@@ -1,10 +1,12 @@
 import datetime
+import json
 import typing
 
 import fastapi
 import sqlalchemy as sa
 from core import exceptions
-from core.repositories import BaseRepository
+from core.config import settings
+from core.repositories import DatabaseRepository, RedisRepository
 from core.utils import get_logger
 
 from . import hashers
@@ -17,7 +19,7 @@ logger = get_logger()
 logger.debug("auth services module imported")
 
 
-class TokenRepository(BaseRepository):
+class TokenRepository(DatabaseRepository):
     async def find_by_user_id(
         self,
         user_id: int,
@@ -51,7 +53,32 @@ class TokenRepository(BaseRepository):
             raise exceptions.conflict_exception()
 
 
-class UserRepository(BaseRepository, UserClauseMixin):
+class TokenRedisRepository(RedisRepository):
+    async def create(
+        self,
+        token_dict: dict,
+    ) -> None:
+        await self.set(
+            f"refresh:{token_dict['user_id']}",
+            json.dumps(
+                {
+                    "token": token_dict["token"],
+                    "username": token_dict["username"],
+                }
+            ),
+            settings.jwt_refresh_expiration_delta,
+        )
+
+    async def find_by_id(
+        self,
+        user_id: int,
+    ):
+        if result := await self.get(f"refresh:{user_id}"):
+            return json.loads(result.decode("utf-8"))
+        return None
+
+
+class UserRepository(DatabaseRepository, UserClauseMixin):
     async def find_all(
         self,
         is_active: bool | None = True,
@@ -255,7 +282,7 @@ class UserRepository(BaseRepository, UserClauseMixin):
         await self.delete_one_or_404("User Permission")
 
 
-class GroupRepository(BaseRepository, UserClauseMixin):
+class GroupRepository(DatabaseRepository, UserClauseMixin):
     async def find_all(
         self,
         skip: int | None = None,
@@ -420,7 +447,7 @@ class GroupRepository(BaseRepository, UserClauseMixin):
         await self.delete_one_or_404("Group Permission")
 
 
-class PermissionRepository(BaseRepository, UserClauseMixin):
+class PermissionRepository(DatabaseRepository, UserClauseMixin):
     async def find_all(
         self,
         skip: int | None = None,
@@ -666,7 +693,7 @@ class PermissionRepository(BaseRepository, UserClauseMixin):
         return await self.get_all()
 
 
-class ContentTypeRepository(BaseRepository):
+class ContentTypeRepository(DatabaseRepository):
     async def find_all(
         self,
         app_label: str,

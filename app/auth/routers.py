@@ -1,4 +1,5 @@
 import datetime
+import json
 import typing
 
 import fastapi
@@ -62,13 +63,13 @@ async def get_access_token(
 
         token_dict = {
             "user_id": user_dict["id"],
+            "username": user_dict["username"],
             "token": refresh_token,
-            "expiration_time_delta": refresh_token_expires,
-            "created": datetime.datetime.now(),
         }
 
         logger.debug(token_dict)
-        await token_service.create(token_dict)
+        # await token_service.create(token_dict)
+        await repositories.TokenRedisRepository().create(token_dict)
 
         response.headers["cache-control"] = "no-store"
 
@@ -93,12 +94,9 @@ async def get_access_token(
 
             user_id: int = payload.get("id")
 
-            if (token_row := await token_service.find_by_user_id(user_id)) is None:
-                raise exceptions.invalid_token_exception()
+            token_dict = await repositories.TokenRedisRepository().find_by_id(user_id)
 
-            token_dict = token_row._mapping
-
-            if token_dict["username"] is None or user_id is None:
+            if token_dict is None:
                 raise exceptions.invalid_token_exception()
 
             access_token_expires = datetime.timedelta(
@@ -147,13 +145,13 @@ async def get_refresh_token(
 
     token_dict = {
         "user_id": user["id"],
+        "username": user["username"],
         "token": refresh_token,
-        "expiration_time_delta": refresh_token_expires,
-        "created": datetime.datetime.now(),
     }
 
     logger.debug(token_dict)
-    await token_service.create(token_dict)
+    # await token_service.create(token_dict)
+    await repositories.TokenRedisRepository().create(token_dict)
 
     response.headers["cache-control"] = "no-store"
 

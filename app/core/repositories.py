@@ -1,5 +1,6 @@
 import typing
 
+import redis
 import sqlalchemy as sa
 from pydantic import BaseModel
 from sqlalchemy.engine import CursorResult
@@ -8,11 +9,12 @@ from core import exceptions
 from core.utils import get_logger
 
 from .database import engine
+from .redis_pool import rd_pool
 
 logger = get_logger()
 
 
-class BaseRepository:
+class DatabaseRepository:
     def __init__(self):
         self.statement = None
 
@@ -108,3 +110,33 @@ class BaseRepository:
             self.statement = self.statement.limit(take)
 
         return self.statement
+
+
+class RedisRepository:
+    def __init__(self):
+        self.connection = redis.StrictRedis(connection_pool=rd_pool)
+
+    async def set(
+        self,
+        key,
+        value,
+        ex=None,
+    ) -> bool:
+        return self.connection.set(key, value, ex)
+
+    async def get(
+        self,
+        key,
+    ) -> typing.Any:
+        return self.connection.get(key)
+
+    async def hset(
+        self,
+        key,
+        mapping,
+        ex=None,
+    ) -> bool:
+        nums = self.connection.hset(key, mapping=mapping)
+        if nums and ex:
+            self.connection.expire(key, ex)
+        return nums
