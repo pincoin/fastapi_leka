@@ -19,41 +19,7 @@ logger = get_logger()
 logger.debug("auth services module imported")
 
 
-class TokenRepository(DatabaseRepository):
-    async def find_by_user_id(
-        self,
-        user_id: int,
-    ):
-        self.statement = (
-            sa.select(
-                auth_models.tokens,
-                auth_models.users.c.username,
-            )
-            .join_from(
-                auth_models.tokens,
-                auth_models.users,
-            )
-            .where(
-                auth_models.tokens.c.user_id == user_id,
-                auth_models.users.c.is_active == True,
-            )
-        )
-
-        return await self.get_one_or_none()
-
-    async def create(
-        self,
-        token_dict: dict,
-    ) -> None:
-        self.statement = auth_models.tokens.insert().values(**token_dict)
-
-        try:
-            await self.insert()
-        except sa.exc.IntegrityError:
-            raise exceptions.conflict_exception()
-
-
-class TokenRedisRepository(RedisRepository):
+class TokenRepository(RedisRepository):
     async def create(
         self,
         token_dict: dict,

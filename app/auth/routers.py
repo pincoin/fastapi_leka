@@ -31,7 +31,7 @@ router = fastapi.APIRouter(
 async def get_access_token(
     response: fastapi.Response,
     form_data: forms.OAuth2RequestForm = fastapi.Depends(),
-    token_service: repositories.TokenRepository = fastapi.Depends(
+    token_repo: repositories.TokenRepository = fastapi.Depends(
         repositories.TokenRepository
     ),
 ) -> dict:
@@ -68,8 +68,7 @@ async def get_access_token(
         }
 
         logger.debug(token_dict)
-        # await token_service.create(token_dict)
-        await repositories.TokenRedisRepository().create(token_dict)
+        await token_repo.create(token_dict)
 
         response.headers["cache-control"] = "no-store"
 
@@ -94,7 +93,7 @@ async def get_access_token(
 
             user_id: int = payload.get("id")
 
-            token_dict = await repositories.TokenRedisRepository().find_by_id(user_id)
+            token_dict = await token_repo.find_by_id(user_id)
 
             if token_dict is None:
                 raise exceptions.invalid_token_exception()
@@ -128,7 +127,7 @@ async def get_access_token(
 async def get_refresh_token(
     response: fastapi.Response,
     user: dict = fastapi.Depends(authentication.get_current_user),
-    token_service: repositories.TokenRepository = fastapi.Depends(
+    token_repo: repositories.TokenRepository = fastapi.Depends(
         repositories.TokenRepository
     ),
 ) -> dict:
@@ -150,8 +149,7 @@ async def get_refresh_token(
     }
 
     logger.debug(token_dict)
-    # await token_service.create(token_dict)
-    await repositories.TokenRedisRepository().create(token_dict)
+    await token_repo.create(token_dict)
 
     response.headers["cache-control"] = "no-store"
 
