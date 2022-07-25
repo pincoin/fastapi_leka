@@ -30,9 +30,9 @@ async def engine_connect() -> typing.Generator:
 
 
 async def redis_connect() -> typing.Generator:
-    async with redis.StrictRedis(connection_pool=rd_pool) as conn:
+    conn = await redis.StrictRedis(connection_pool=rd_pool)
+    try:
         yield conn
-
-        # At the end of the with: block, the Connection
-        # is released to the connection pool not actually closed.
+    finally:
+        # no matter if there was an exception or not
         logger.debug(f"redis closed (implicit) - [{os.getpid()}]")
