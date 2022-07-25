@@ -42,6 +42,7 @@ sqlalchemy_pool_size=5
 sqlalchemy_max_overflow=10
 sqlalchemy_pool_recycle=28800
 sqlalchemy_pool_timeout=30
+redis_uri="redis://username:password@localhost:port/path"
 log_file="/path/to/logs/fastapi.log"
 ```
 

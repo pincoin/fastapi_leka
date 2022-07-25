@@ -2,9 +2,12 @@ import os
 import typing
 from asyncio.log import logger
 
+import redis
+
 from core.utils import get_logger
 
 from .database import engine
+from .redis_pool import rd_pool
 
 logger = get_logger()
 
@@ -23,4 +26,13 @@ async def engine_connect() -> typing.Generator:
 
         # At the end of the with: block, the Connection
         # is released to the connection pool not actually closed.
-        logger.debug(f"engine connection is implictly closed. - [{os.getpid()}]")
+        logger.debug(f"sa engine closed (implicit) - [{os.getpid()}]")
+
+
+async def redis_connect() -> typing.Generator:
+    async with redis.StrictRedis(connection_pool=rd_pool) as conn:
+        yield conn
+
+        # At the end of the with: block, the Connection
+        # is released to the connection pool not actually closed.
+        logger.debug(f"redis closed (implicit) - [{os.getpid()}]")

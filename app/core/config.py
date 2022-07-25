@@ -1,7 +1,7 @@
 import os
 from functools import lru_cache
 
-from pydantic import BaseSettings, Field, PostgresDsn
+from pydantic import BaseSettings, Field, PostgresDsn, RedisDsn
 
 
 class Settings(BaseSettings):
@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     sqlalchemy_max_overflow: int = 10
     sqlalchemy_pool_recycle: int = 28800  # recycle connection in seconds
     sqlalchemy_pool_timeout: int = 30  # raise TimeoutError
+
+    redis_uri: RedisDsn
 
     log_file: str = "fastapi.log"
 
