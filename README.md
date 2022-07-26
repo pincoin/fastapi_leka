@@ -18,6 +18,8 @@ Python 3.10 and above
 * pydantic[email]
 * python-multipart
 * python-jose[cryptography]
+* fastapi-sso
+* pytest
 * uvicorn
 
 ## Settings
