@@ -1,5 +1,4 @@
 import datetime
-import json
 import typing
 
 import fastapi
@@ -7,9 +6,12 @@ import sqlalchemy as sa
 from core import exceptions
 from core.config import settings
 from core.utils import get_logger, list_params
+from fastapi_sso import sso
 from jose import JWTError, jwt
+from starlette.requests import Request
 
 from auth import repositories
+from auth.dependencies.sso import get_google_sso
 
 from . import forms, schemas
 from .backends import authentication
@@ -896,3 +898,28 @@ async def list_content_types_of_permission(
         params["skip"],
         params["take"],
     )
+
+
+@router.get("/google/login")
+async def google_login(
+    sso: sso.google.GoogleSSO = fastapi.Depends(get_google_sso),
+):
+    return await sso.get_login_redirect()
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    sso: sso.google.GoogleSSO = fastapi.Depends(get_google_sso),
+):
+    user = await sso.verify_and_process(request)
+
+    return {
+        "id": user.id,
+        "picture": user.picture,
+        "display_name": user.display_name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "provider": user.provider,
+    }  # OpenID object

@@ -1,7 +1,7 @@
 import os
 from functools import lru_cache
 
-from pydantic import BaseSettings, Field, PostgresDsn, RedisDsn
+from pydantic import BaseSettings, Field, HttpUrl, PostgresDsn, RedisDsn
 
 
 class Settings(BaseSettings):
@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     sqlalchemy_pool_timeout: int = 30  # raise TimeoutError
 
     redis_uri: RedisDsn
+
+    sso_google_client_id: str
+    sso_google_client_secret: str
+    sso_google_client_callback: HttpUrl
 
     log_file: str = "fastapi.log"
 
