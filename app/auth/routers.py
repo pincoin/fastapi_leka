@@ -1,17 +1,17 @@
 import datetime
+import json
 import typing
 
 import fastapi
+import httpx
 import sqlalchemy as sa
 from core import exceptions
 from core.config import settings
 from core.utils import get_logger, list_params
-from fastapi_sso import sso
 from jose import JWTError, jwt
-from starlette.requests import Request
+from oauthlib.oauth2 import WebApplicationClient
 
 from auth import repositories
-from auth.dependencies.sso import get_google_sso
 
 from . import forms, schemas
 from .backends import authentication
@@ -901,25 +901,71 @@ async def list_content_types_of_permission(
 
 
 @router.get("/google/login")
-async def google_login(
-    sso: sso.google.GoogleSSO = fastapi.Depends(get_google_sso),
-):
-    return await sso.get_login_redirect()
+async def google_login() -> fastapi.responses.RedirectResponse:
+    client = WebApplicationClient(client_id=settings.sso_google_client_id)
+
+    # redirect to authorization consent screen
+    # prompt = "consent" | None
+
+    # For the first time, prompt="consent" is set as default,
+    # so callback will be called once.
+
+    # Once allowed, redirection without consent, the sign-in callback will be called
+    # every time that the user's signed in status changes.
+
+    # Set prompt="consent" to prevent callback called twice
+    # Otherwise, prevent to redirect consent screen if already signed in.
+
+    login_uri = client.prepare_request_uri(
+        "https://accounts.google.com/o/oauth2/v2/auth",
+        redirect_uri=settings.sso_google_client_callback,
+        scope=["openid", "email", "profile"],
+        state="D8VAo311AAl_49LAtM51HA",
+        # prompt="consent",
+    )
+
+    return fastapi.responses.RedirectResponse(login_uri, 303)
 
 
 @router.get("/google/callback")
 async def google_callback(
-    request: Request,
-    sso: sso.google.GoogleSSO = fastapi.Depends(get_google_sso),
+    code: str,
+    request: fastapi.requests.Request,
 ):
-    user = await sso.verify_and_process(request)
+    client = WebApplicationClient(client_id=settings.sso_google_client_id)
 
-    return {
-        "id": user.id,
-        "picture": user.picture,
-        "display_name": user.display_name,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "provider": user.provider,
-    }  # OpenID object
+    authorization_response = str(request.url).replace("http://", "https://")
+
+    token_url, headers, body = client.prepare_token_request(
+        "https://oauth2.googleapis.com/token",
+        authorization_response=authorization_response,
+        redirect_url=settings.sso_google_client_callback,
+        code=code,
+    )
+
+    if token_url is None:
+        return None
+
+    auth = httpx.BasicAuth(
+        settings.sso_google_client_id,
+        settings.sso_google_client_secret,
+    )
+
+    async with httpx.AsyncClient() as session:
+        # fetch access token
+        response = await session.post(
+            token_url, headers=headers, content=body, auth=auth
+        )
+        content = response.json()  # dict
+
+        client.parse_request_body_response(json.dumps(content))  # parse str
+
+        # read user info
+        uri, headers, _ = client.add_token(
+            "https://openidconnect.googleapis.com/v1/userinfo"
+        )
+
+        response = await session.get(uri, headers=headers)
+        content = response.json()
+
+    return content
