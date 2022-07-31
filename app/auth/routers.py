@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import typing
@@ -10,6 +11,7 @@ from core.config import settings
 from core.utils import get_logger, list_params
 from jose import JWTError, jwt
 from oauthlib.oauth2 import WebApplicationClient
+from sse_starlette import EventSourceResponse
 
 from auth import repositories
 
@@ -969,3 +971,33 @@ async def google_callback(
         content = response.json()
 
     return content
+
+
+@router.get("/sse-stream/{state}")
+async def sse(
+    state: str,
+    request: fastapi.requests.Request,
+):
+    def new_messages():
+        yield "signed-in"
+
+    async def event_generator():
+        STREAM_DELAY = 1  # second
+        RETRY_TIMEOUT = 15000  # milisecond
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            # Checks for new messages and return them to client if any
+            if new_messages():
+                yield {
+                    "event": "signed-in",
+                    "id": state,
+                    "retry": RETRY_TIMEOUT,
+                    "data": "message_content",
+                }
+
+            await asyncio.sleep(STREAM_DELAY)
+
+    return EventSourceResponse(event_generator())
