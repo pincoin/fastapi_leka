@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import typing
+import uuid
 
 import fastapi
 import httpx
@@ -918,22 +919,38 @@ async def google_login() -> fastapi.responses.RedirectResponse:
     # Set prompt="consent" to prevent callback called twice
     # Otherwise, prevent to redirect consent screen if already signed in.
 
+    state = str(uuid.uuid4())
+
     login_uri = client.prepare_request_uri(
         "https://accounts.google.com/o/oauth2/v2/auth",
         redirect_uri=settings.sso_google_client_callback,
         scope=["openid", "email", "profile"],
-        state="D8VAo311AAl_49LAtM51HA",
-        # prompt="consent",
+        state=state,
+        prompt="consent",
     )
 
-    return fastapi.responses.RedirectResponse(login_uri, 303)
+    response = fastapi.responses.RedirectResponse(login_uri, 303)
+    response.set_cookie("oauth2_state", state, expires=600)
+    return response
 
 
 @router.get("/google/callback")
 async def google_callback(
     code: str,
+    state: str,
     request: fastapi.requests.Request,
 ):
+    if code is None:
+        return None
+
+    if state is None:
+        return None
+
+    oauth2_state = request.cookies.get("oauth2_state")
+
+    if oauth2_state is None or oauth2_state != state:
+        return None
+
     client = WebApplicationClient(client_id=settings.sso_google_client_id)
 
     authorization_response = str(request.url).replace("http://", "https://")
